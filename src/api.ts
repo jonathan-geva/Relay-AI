@@ -1,5 +1,6 @@
 import { getPreferenceValues, LocalStorage } from "@raycast/api";
 import { readCompletion } from "./stream";
+import { managedConnection, MANAGED_KEY } from "./chatmock";
 
 export type Role = "system" | "user" | "assistant";
 export type ChatMessage = { role: Role; content: string };
@@ -19,17 +20,16 @@ function config() {
   };
 }
 
-function headers() {
-  const { apiKey } = config();
+function headers(apiKey?: string) {
   const h: Record<string, string> = { "Content-Type": "application/json" };
   if (apiKey) h.Authorization = `Bearer ${apiKey}`;
   return h;
 }
 
 export async function fetchModels(): Promise<string[]> {
-  const { baseUrl } = config();
+  const { baseUrl, apiKey } = (await managedConnection()) || config();
   const response = await fetch(`${baseUrl}/models`, {
-    headers: headers(),
+    headers: headers(apiKey),
     signal: AbortSignal.timeout(15000),
   });
   if (!response.ok) {
@@ -46,12 +46,18 @@ export async function fetchModels(): Promise<string[]> {
 }
 
 export async function getDefaultModel(): Promise<string> {
-  const stored = await LocalStorage.getItem<string>("default-model");
+  const key = (await LocalStorage.getItem<boolean>(MANAGED_KEY))
+    ? "chatmock-default-model"
+    : "default-model";
+  const stored = await LocalStorage.getItem<string>(key);
   return stored || config().defaultModel;
 }
 
 export async function setDefaultModel(model: string) {
-  await LocalStorage.setItem("default-model", model);
+  const key = (await LocalStorage.getItem<boolean>(MANAGED_KEY))
+    ? "chatmock-default-model"
+    : "default-model";
+  await LocalStorage.setItem(key, model);
 }
 
 export function withSystemPrompt(messages: ChatMessage[]): ChatMessage[] {
@@ -67,13 +73,13 @@ export async function complete(
   onDelta?: (fullText: string) => void,
   signal?: AbortSignal,
 ): Promise<string> {
-  const { baseUrl } = config();
+  const { baseUrl, apiKey } = (await managedConnection()) || config();
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
     signal: signal
       ? AbortSignal.any([signal, AbortSignal.timeout(180000)])
       : AbortSignal.timeout(180000),
-    headers: headers(),
+    headers: headers(apiKey),
     body: JSON.stringify({
       model,
       messages: withSystemPrompt(messages),

@@ -14,6 +14,8 @@ import {
 import { useEffect, useState } from "react";
 import { fetchModels, getDefaultModel, setDefaultModel } from "./api";
 import { Compose } from "./compose";
+import ChatMockSetup from "./setup-chatmock";
+import { MANAGED_KEY } from "./chatmock";
 export default function Command() {
   const { push } = useNavigation();
   const [models, setModels] = useState<string[]>([]);
@@ -41,6 +43,11 @@ export default function Command() {
   }, []);
   const connection = (
     <ActionPanel.Section title="Connection">
+      <Action
+        title="Set up ChatMock"
+        icon={Icon.Download}
+        onAction={() => push(<ChatMockSetup />, () => void load())}
+      />
       <Action
         title="Refresh Models"
         icon={Icon.ArrowClockwise}
@@ -119,7 +126,11 @@ export default function Command() {
                   title="Reset Stored Default"
                   icon={Icon.ArrowCounterClockwise}
                   onAction={async () => {
-                    await LocalStorage.removeItem("default-model");
+                    await LocalStorage.removeItem(
+                      (await LocalStorage.getItem<boolean>(MANAGED_KEY))
+                        ? "chatmock-default-model"
+                        : "default-model",
+                    );
                     setDefault(await getDefaultModel());
                   }}
                 />

@@ -18,6 +18,7 @@ import { ChatView } from "./chat-view";
 import { Compose } from "./compose";
 import PromptLibrary from "./prompts";
 import Models from "./models";
+import ChatMockSetup from "./setup-chatmock";
 import {
   clearHistory,
   Conversation,
@@ -149,6 +150,20 @@ export default function Command() {
         title="Your Workspace"
         subtitle="Think clearly. Make progress."
       >
+        <List.Item
+          title="Set Up ChatMock"
+          subtitle="Automatic install, sign-in, and local connection"
+          icon={{ source: Icon.Download, tintColor: Color.Green }}
+          actions={
+            <ActionPanel>
+              <Action
+                title="Set up ChatMock"
+                icon={Icon.Stars}
+                onAction={() => push(<ChatMockSetup />)}
+              />
+            </ActionPanel>
+          }
+        />
         <List.Item
           title="New Conversation"
           subtitle="Start with a question or an idea"

@@ -34,3 +34,11 @@ Initial research included [Sider](https://sider.ai/home) and [Merlin](https://ex
 ## Deferred
 
 Browser control, autonomous tools, image generation, attachments, synchronization, and provider-specific comparisons need additional contracts beyond the existing text API. This iteration focuses on everyday text work.
+
+## Automatic ChatMock setup
+
+The setup screen consolidates installation, browser sign-in, local server startup, and model selection into one action. It shows progress and supports cancellation, reauthentication, status refresh, stopping, and returning to custom API settings.
+
+Implementation follows [ChatMock's CLI and Python package](https://github.com/RayBytes/ChatMock) and [uv's managed Python installation](https://docs.astral.sh/uv/guides/install-python/). ChatMock is pinned to PyPI version 1.40. uv is pinned to [0.12.13](https://github.com/astral-sh/uv/releases/tag/0.12.13), with SHA-256 digests for each supported archive taken from the official release asset metadata. No remote shell installer is executed.
+
+The runner binds loopback port 8317, requires a random per-install access key, and exposes authenticated health/stop endpoints. This allows Relay to distinguish and control its own server without killing processes by stored PID. Setup locks prevent overlapping installation or sign-in. A local managed-connection flag enables on-demand startup while preserving custom provider settings and defaults.

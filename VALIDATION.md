@@ -3,8 +3,8 @@
 ## Passed
 
 - TypeScript typecheck and source/test ESLint checks.
-- Native Raycast build for all six command entry points.
-- 15 automated tests: nine streaming cases and six API/storage integration cases.
+- Native Raycast build for all seven command entry points.
+- 24 automated tests: nine streaming, seven API/storage, and eight setup cases.
 - API tests use a temporary local HTTP server and the real fetch path, mocking only Raycast preferences/storage.
 - Development CLI compiled and started watching the extension.
 
@@ -25,3 +25,13 @@
 6. Disable future history saving and verify fresh chats are not saved.
 7. Check disconnected endpoints and invalid models for readable errors and retry.
 8. Verify selection capture and paste in your normal applications.
+
+## Automatic setup validation
+
+- 24 automated tests now pass, including installer selection/integrity, login URL validation, token persistence, setup locking, cancellation, unrelated-service detection, and separate model defaults.
+- A real Windows smoke test downloaded the pinned uv archive, verified its SHA-256, installed managed Python and ChatMock 1.40 in a path containing spaces, and successfully repeated installation without downloading again.
+- The actual Python runner passed start, authenticated health, rejection of unauthenticated model/stop requests, repeat start, stop, and restart checks.
+- An occupied-port test confirmed startup fails without stopping the unrelated server.
+- A Python login fixture verified URL handoff, cancellation, and lock cleanup. The actual browser OAuth flow was not completed, and no real-model prompt was sent.
+- macOS/ARM installation and the native Raycast setup screen still need interactive acceptance testing.
+- All smoke-test servers were stopped after verification.

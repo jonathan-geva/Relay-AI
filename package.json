@@ -76,7 +76,7 @@
         {
           "name": "prompt",
           "type": "text",
-          "placeholder": "Ask anything\u00e2\u20ac\u00a6",
+          "placeholder": "Ask anything...",
           "required": true
         }
       ]
@@ -103,6 +103,12 @@
       "name": "prompts",
       "title": "Prompt Library",
       "description": "Reusable prompts for writing, summarizing, translating, and coding",
+      "mode": "view"
+    },
+    {
+      "name": "setup-chatmock",
+      "title": "Set Up ChatMock",
+      "description": "Automatically install ChatMock, sign in, and connect Relay to your local server",
       "mode": "view"
     }
   ],

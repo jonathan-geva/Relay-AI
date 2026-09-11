@@ -36,7 +36,8 @@ const result = await build({
           namespace: "test",
         }));
         b.onLoad({ filter: /.*/, namespace: "test" }, () => ({
-          contents: `export const getPreferenceValues = () => globalThis.__relayTestPreferences;
+          contents: `export const environment = { supportPath: "", assetsPath: "" };
+export const getPreferenceValues = () => globalThis.__relayTestPreferences;
   export const LocalStorage = { getItem: async k => globalThis.__relayTestItems.get(k), setItem: async (k,v) => { globalThis.__relayTestItems.set(k,v); }, removeItem: async k => { globalThis.__relayTestItems.delete(k); }, allItems: async () => Object.fromEntries(globalThis.__relayTestItems) };`,
         }));
       },
@@ -106,6 +107,13 @@ try {
       received.body.messages.filter((m) => m.role === "system").length,
       1,
     );
+  });
+  await test("managed model selection leaves the custom provider default intact", async () => {
+    items.set("chatmock-managed-enabled", true);
+    await relay.setDefaultModel("managed-model");
+    assert.equal(await relay.getDefaultModel(), "managed-model");
+    items.set("chatmock-managed-enabled", false);
+    assert.equal(await relay.getDefaultModel(), "alpha");
   });
   await test("completion surfaces HTTP failures", async () => {
     await assert.rejects(
