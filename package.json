@@ -1,0 +1,106 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "relay-ai",
+  "title": "Relay AI",
+  "description": "Minimal Raycast AI for ChatMock and any OpenAI-compatible endpoint.",
+  "icon": "icon.png",
+  "author": "jonathan-geva",
+  "license": "MIT",
+  "platforms": ["Windows", "macOS"],
+  "categories": ["Productivity", "Developer Tools"],
+  "preferences": [
+    {
+      "name": "baseUrl",
+      "type": "textfield",
+      "required": true,
+      "title": "API Base URL",
+      "description": "OpenAI-compatible base URL.",
+      "default": "http://127.0.0.1:8000/v1",
+      "placeholder": "http://127.0.0.1:8000/v1"
+    },
+    {
+      "name": "apiKey",
+      "type": "password",
+      "required": false,
+      "title": "API Key",
+      "description": "ChatMock does not validate this, so 'chatmock' is fine.",
+      "default": "chatmock",
+      "placeholder": "chatmock"
+    },
+    {
+      "name": "defaultModel",
+      "type": "textfield",
+      "required": true,
+      "title": "Fallback Model",
+      "description": "Used until you choose a default model with the Models command.",
+      "default": "gpt-5.6-sol",
+      "placeholder": "gpt-5.6-sol"
+    },
+    {
+      "name": "systemPrompt",
+      "type": "textfield",
+      "required": false,
+      "title": "System Prompt",
+      "description": "Optional system prompt added to every conversation.",
+      "placeholder": "You are a concise, helpful assistant."
+    }
+  ],
+  "commands": [
+    {
+      "name": "chat",
+      "title": "AI Chat",
+      "description": "Chat with your OpenAI-compatible model",
+      "mode": "view"
+    },
+    {
+      "name": "quick-ask",
+      "title": "Quick Ask",
+      "description": "Ask AI directly from Raycast",
+      "mode": "view",
+      "arguments": [
+        {
+          "name": "prompt",
+          "type": "text",
+          "placeholder": "Ask anything…",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "ask-selection",
+      "title": "Ask About Selected Text",
+      "description": "Ask AI about text selected in another app",
+      "mode": "view"
+    },
+    {
+      "name": "improve-writing",
+      "title": "Improve Selected Writing",
+      "description": "Rewrite selected text and paste the improved version",
+      "mode": "no-view"
+    },
+    {
+      "name": "models",
+      "title": "Models",
+      "description": "Fetch models from the configured endpoint and choose a default",
+      "mode": "view"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.101.0",
+    "@raycast/utils": "^2.3.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^2.2.0",
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.0.0",
+    "eslint": "^9.22.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.2"
+  },
+  "scripts": {
+    "dev": "ray develop",
+    "build": "ray build -e dist",
+    "lint": "ray lint",
+    "fix-lint": "ray lint --fix"
+  }
+}
