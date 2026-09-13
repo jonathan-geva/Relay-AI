@@ -12,12 +12,21 @@ import {
 } from "@raycast/api";
 import { useEffect, useRef, useState } from "react";
 import { join } from "node:path";
-import { activateChatMock, chatMockManager, MANAGED_KEY } from "./chatmock";
+import {
+  activateChatMock,
+  chatMockManager,
+  MANAGED_KEY,
+  SETUP_DISMISSED_KEY,
+} from "./chatmock";
 import { CHATMOCK_VERSION } from "./chatmock-manager";
 import { Compose } from "./compose";
 
-export default function ChatMockSetup() {
-  const { push } = useNavigation();
+export default function ChatMockSetup({
+  onUseCustomApi,
+}: {
+  onUseCustomApi?: () => void;
+} = {}) {
+  const { pop, push } = useNavigation();
   const [status, setStatus] = useState({
     installed: false,
     session: false,
@@ -229,6 +238,17 @@ export default function ChatMockSetup() {
                   onAction={async () => {
                     await LocalStorage.setItem(MANAGED_KEY, false);
                     await refresh();
+                  }}
+                />
+              )}
+              {!status.enabled && (
+                <Action
+                  title="Use My Custom API Instead"
+                  icon={Icon.Gear}
+                  onAction={async () => {
+                    await LocalStorage.setItem(SETUP_DISMISSED_KEY, true);
+                    if (onUseCustomApi) onUseCustomApi();
+                    else pop();
                   }}
                 />
               )}

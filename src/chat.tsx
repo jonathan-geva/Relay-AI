@@ -8,6 +8,7 @@ import {
   Icon,
   Keyboard,
   List,
+  LocalStorage,
   openExtensionPreferences,
   showToast,
   Toast,
@@ -19,6 +20,7 @@ import { Compose } from "./compose";
 import PromptLibrary from "./prompts";
 import Models from "./models";
 import ChatMockSetup from "./setup-chatmock";
+import { MANAGED_KEY, SETUP_DISMISSED_KEY } from "./chatmock";
 import {
   clearHistory,
   Conversation,
@@ -70,6 +72,7 @@ export default function Command() {
   const { push } = useNavigation();
   const [chats, setChats] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [needsSetup, setNeedsSetup] = useState<boolean>();
   const [filter, setFilter] = useState("all");
   async function refresh() {
     try {
@@ -86,6 +89,12 @@ export default function Command() {
   }
   useEffect(() => {
     void refresh();
+    void Promise.all([
+      LocalStorage.getItem<boolean>(MANAGED_KEY),
+      LocalStorage.getItem<boolean>(SETUP_DISMISSED_KEY),
+    ]).then(([enabled, dismissed]) => {
+      setNeedsSetup(!enabled && !dismissed);
+    });
   }, []);
   const globalActions = (
     <ActionPanel.Section title="Workspace">
@@ -130,6 +139,10 @@ export default function Command() {
     </ActionPanel.Section>
   );
   const visible = chats.filter((c) => filter !== "pinned" || c.pinned);
+  if (needsSetup === undefined)
+    return <List isLoading navigationTitle="Relay AI" />;
+  if (needsSetup)
+    return <ChatMockSetup onUseCustomApi={() => setNeedsSetup(false)} />;
   return (
     <List
       navigationTitle="Relay AI"

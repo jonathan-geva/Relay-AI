@@ -2,6 +2,7 @@ import { environment, LocalStorage } from "@raycast/api";
 import { join } from "node:path";
 import { ChatMockManager } from "./chatmock-manager";
 export const MANAGED_KEY = "chatmock-managed-enabled";
+export const SETUP_DISMISSED_KEY = "chatmock-setup-dismissed";
 export function chatMockManager() {
   return new ChatMockManager(
     join(environment.supportPath, "chatmock"),
@@ -41,5 +42,6 @@ export async function activateChatMock() {
   if (!stored || !models.includes(stored))
     await LocalStorage.setItem("chatmock-default-model", models[0]);
   await LocalStorage.setItem(MANAGED_KEY, true);
+  await LocalStorage.setItem(SETUP_DISMISSED_KEY, false);
   return models.length;
 }
