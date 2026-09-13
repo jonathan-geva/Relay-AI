@@ -12,6 +12,7 @@ import {
 } from "@raycast/api";
 import { useEffect, useRef, useState } from "react";
 import { ChatMessage, complete } from "./api";
+import { scheduleAbort } from "./request-lifecycle";
 import {
   Conversation,
   conversationMarkdown,
@@ -86,6 +87,8 @@ export function ChatView({
   const [stopped, setStopped] = useState(false);
   const controller = useRef<AbortController | null>(null);
   const mounted = useRef(true);
+  const started = useRef(false);
+  const cancelScheduledAbort = useRef<() => void>(() => undefined);
   const current = useRef(chat);
   function update(next: Conversation) {
     current.current = next;
@@ -184,11 +187,20 @@ export function ChatView({
     }
   }
   useEffect(() => {
+    cancelScheduledAbort.current();
     mounted.current = true;
-    if (!conversation) void send(current.current.messages);
+    if (!conversation && !started.current) {
+      started.current = true;
+      void send(current.current.messages);
+    }
     return () => {
       mounted.current = false;
-      controller.current?.abort();
+      const active = controller.current;
+      if (active)
+        cancelScheduledAbort.current = scheduleAbort(
+          active,
+          () => mounted.current,
+        );
     };
     // Each view owns a single conversation and cancels its request on navigation.
   }, []);
