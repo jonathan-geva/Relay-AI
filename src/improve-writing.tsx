@@ -8,18 +8,16 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { Compose } from "./compose";
 export default function Command() {
-  const [selected, setSelected] = useState<string>();
+  const [text, setText] = useState<string>();
   const [error, setError] = useState<string>();
   const started = useRef(false);
   async function read() {
     setError(undefined);
     try {
-      const text = await getSelectedText();
-      if (!text.trim())
-        throw new Error(
-          "Select some text in another application and try again.",
-        );
-      setSelected(text);
+      const selection = await getSelectedText();
+      if (!selection.trim())
+        throw new Error("Select text in another application first.");
+      setText(selection);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -29,21 +27,17 @@ export default function Command() {
     started.current = true;
     void read();
   }, []);
-  if (selected !== undefined)
-    return (
-      <Compose
-        title="Ask About Selected Text"
-        initialText={`Help me understand the following text:\n\n${selected}`}
-        conversationTitle={`Ask about: ${selected.replace(/\s+/g, " ").slice(0, 52)}`}
-      />
-    );
-  return (
+  return text !== undefined ? (
+    <Compose
+      title="Improve Selected Writing"
+      initialText={text}
+      instruction="Improve grammar, clarity, and flow. Preserve the original meaning, language, and voice. Return only the improved text."
+    />
+  ) : (
     <Detail
       isLoading={!error}
       markdown={
-        error
-          ? `# Select text to get started\n\n${error}`
-          : "Reading your selection…"
+        error ? `# Select some writing\n\n${error}` : "Reading your selection…"
       }
       actions={
         error ? (

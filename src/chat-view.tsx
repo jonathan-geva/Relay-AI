@@ -1,100 +1,349 @@
-import { Action, ActionPanel, Detail, Form, Icon, showToast, Toast, useNavigation } from "@raycast/api";
-import { useEffect, useState } from "react";
+import {
+  Action,
+  ActionPanel,
+  Color,
+  Detail,
+  Form,
+  Icon,
+  Keyboard,
+  showToast,
+  Toast,
+  useNavigation,
+} from "@raycast/api";
+import { useEffect, useRef, useState } from "react";
 import { ChatMessage, complete } from "./api";
+import { scheduleAbort } from "./request-lifecycle";
+import {
+  Conversation,
+  conversationMarkdown,
+  historyEnabled,
+  newConversation,
+  saveConversation,
+} from "./storage";
 
-function renderConversation(messages: ChatMessage[]) {
-  const visible = messages.filter((m) => m.role !== "system");
-  if (!visible.length) return "";
-
-  return visible
-    .map((message) => {
-      if (message.role === "user") {
-        return `### You\n\n${message.content}`;
-      }
-      return `### AI\n\n${message.content || "_Thinking…_"}`;
-    })
-    .join("\n\n---\n\n");
+function quoteMarkdown(text: string) {
+  return text
+    .trim()
+    .split("\n")
+    .map((line) => `> ${line}`)
+    .join("\n");
 }
 
-function FollowUpForm({ onSubmit }: { onSubmit: (prompt: string) => Promise<void> }) {
+function FollowUpForm({ onSubmit }: { onSubmit: (prompt: string) => void }) {
   const { pop } = useNavigation();
-  const [sending, setSending] = useState(false);
-
+  const [error, setError] = useState<string>();
   return (
     <Form
-      isLoading={sending}
-      navigationTitle="Follow Up"
+      navigationTitle="Continue Conversation"
       actions={
         <ActionPanel>
           <Action.SubmitForm
-            title="Send"
+            title="Send Message"
             icon={Icon.ArrowRight}
-            onSubmit={async (values: { prompt: string }) => {
-              const prompt = values.prompt?.trim();
-              if (!prompt) return;
-              setSending(true);
+            onSubmit={(v: { prompt: string }) => {
+              if (!v.prompt.trim()) {
+                setError("Enter a message to continue.");
+                return;
+              }
               pop();
-              await onSubmit(prompt);
+              onSubmit(v.prompt.trim());
             }}
           />
         </ActionPanel>
       }
     >
-      <Form.TextArea id="prompt" title="Message" placeholder="Ask a follow-up…" autoFocus />
+      <Form.TextArea
+        id="prompt"
+        title="Message"
+        placeholder="Ask a follow-up, explore an idea, or refine the answer…"
+        error={error}
+        onChange={() => setError(undefined)}
+        autoFocus
+      />
     </Form>
   );
 }
 
-export function ChatView({ initialPrompt, model }: { initialPrompt: string; model: string }) {
+export function ChatView({
+  initialPrompt = "",
+  model,
+  conversation,
+  initialTitle,
+}: {
+  initialPrompt?: string;
+  model: string;
+  conversation?: Conversation;
+  initialTitle?: string;
+}) {
   const { push } = useNavigation();
-  const [messages, setMessages] = useState<ChatMessage[]>([{ role: "user", content: initialPrompt }]);
-  const [loading, setLoading] = useState(true);
-
-  async function sendFrom(baseMessages: ChatMessage[], prompt?: string) {
-    const nextBase = prompt ? [...baseMessages, { role: "user", content: prompt } as ChatMessage] : baseMessages;
-    const pending = [...nextBase, { role: "assistant", content: "" } as ChatMessage];
-    setMessages(pending);
-    setLoading(true);
-
+  const [chat, setChat] = useState<Conversation>(() => {
+    const fresh = conversation || newConversation(initialPrompt, model);
+    return initialTitle && !conversation
+      ? { ...fresh, title: initialTitle }
+      : fresh;
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string>();
+  const [stopped, setStopped] = useState(false);
+  const controller = useRef<AbortController | null>(null);
+  const mounted = useRef(true);
+  const started = useRef(false);
+  const cancelScheduledAbort = useRef<() => void>(() => undefined);
+  const current = useRef(chat);
+  function update(next: Conversation) {
+    current.current = next;
+    if (mounted.current) setChat(next);
+  }
+  async function persist(next: Conversation) {
     try {
-      const answer = await complete(nextBase, model, (full) => {
-        setMessages([...nextBase, { role: "assistant", content: full }]);
-      });
-      setMessages([...nextBase, { role: "assistant", content: answer || "_No text returned._" }]);
-    } catch (error) {
-      setMessages(nextBase);
+      await saveConversation(next);
+    } catch {
       await showToast({
         style: Toast.Style.Failure,
-        title: "AI request failed",
-        message: error instanceof Error ? error.message : String(error),
+        title: "Could not save conversation",
+        message: "Copy the response to keep it.",
       });
-    } finally {
-      setLoading(false);
     }
   }
-
+  async function send(base: ChatMessage[]) {
+    if (controller.current) return;
+    const request = new AbortController();
+    controller.current = request;
+    setLoading(true);
+    setError(undefined);
+    setStopped(false);
+    const start = { ...current.current, messages: base, updatedAt: Date.now() };
+    update(start);
+    let partial = "";
+    let reasoning = "";
+    const updateAssistant = () =>
+      update({
+        ...start,
+        messages: [
+          ...base,
+          {
+            role: "assistant",
+            content: partial,
+            ...(reasoning ? { reasoning } : {}),
+          },
+        ],
+      });
+    try {
+      const answer = await complete(
+        base,
+        model,
+        (text) => {
+          partial = text;
+          updateAssistant();
+        },
+        request.signal,
+        (text) => {
+          reasoning = text;
+          updateAssistant();
+        },
+      );
+      if (!answer.trim())
+        throw new Error(
+          "The model returned no text. Retry or choose another model.",
+        );
+      const finished = {
+        ...start,
+        messages: [
+          ...base,
+          {
+            role: "assistant" as const,
+            content: answer,
+            ...(reasoning ? { reasoning } : {}),
+          },
+        ],
+        updatedAt: Date.now(),
+      };
+      update(finished);
+      await persist(finished);
+    } catch (e) {
+      if (request.signal.aborted) {
+        if (mounted.current) setStopped(true);
+      } else if (mounted.current)
+        setError(e instanceof Error ? e.message : String(e));
+      const saved = {
+        ...start,
+        messages:
+          partial || reasoning
+            ? [
+                ...base,
+                {
+                  role: "assistant" as const,
+                  content: partial,
+                  ...(reasoning ? { reasoning } : {}),
+                },
+              ]
+            : base,
+      };
+      update(saved);
+      await persist(saved);
+    } finally {
+      controller.current = null;
+      if (mounted.current) setLoading(false);
+    }
+  }
   useEffect(() => {
-    void sendFrom([{ role: "user", content: initialPrompt }]);
-    // The initial prompt should only run once for this pushed chat view.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    cancelScheduledAbort.current();
+    mounted.current = true;
+    if (!conversation && !started.current) {
+      started.current = true;
+      void send(current.current.messages);
+    }
+    return () => {
+      mounted.current = false;
+      const active = controller.current;
+      if (active)
+        cancelScheduledAbort.current = scheduleAbort(
+          active,
+          () => mounted.current,
+        );
+    };
+    // Each view owns a single conversation and cancels its request on navigation.
   }, []);
-
-  const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant")?.content ?? "";
-
+  const answer = [...chat.messages]
+    .reverse()
+    .find((m) => m.role === "assistant")?.content;
+  const retryBase =
+    chat.messages.at(-1)?.role === "assistant"
+      ? chat.messages.slice(0, -1)
+      : chat.messages;
+  const body = chat.messages
+    .filter((m) => m.role !== "system")
+    .map((m) => {
+      if (m.role === "user") return `### You\n\n${m.content}`;
+      const thinking = m.reasoning
+        ? `> **Thinking**\n>\n${quoteMarkdown(m.reasoning)}\n\n`
+        : "";
+      const answer = m.content
+        ? `#### Answer\n\n${m.content}`
+        : loading
+          ? "_Composing the answer…_"
+          : "";
+      return `### Relay\n\n${thinking}${answer}`;
+    })
+    .join("\n\n---\n\n");
+  const waitingForFirstToken =
+    loading && chat.messages.at(-1)?.role !== "assistant";
+  const activity = waitingForFirstToken
+    ? `\n\n---\n\n### Relay\n\n_Connecting to ${model}…_`
+    : "";
+  const notice = stopped
+    ? "\n\n_Response stopped. Retry or continue the conversation._"
+    : error
+      ? `\n\n---\n\n### Could not complete response\n\n${error}\n\nCheck your connection and model, then retry.`
+      : "";
+  const continueAction = (
+    <Action
+      title="Continue Conversation"
+      icon={Icon.Message}
+      onAction={() =>
+        push(
+          <FollowUpForm
+            onSubmit={(prompt) =>
+              void send([...chat.messages, { role: "user", content: prompt }])
+            }
+          />,
+        )
+      }
+    />
+  );
+  const retryAction = (
+    <Action
+      title={error || stopped ? "Retry Response" : "Regenerate Response"}
+      icon={Icon.ArrowClockwise}
+      shortcut={Keyboard.Shortcut.Common.Refresh}
+      onAction={() => void send(retryBase)}
+    />
+  );
   return (
     <Detail
-      navigationTitle={`${model} · AI Chat`}
+      navigationTitle={chat.title}
       isLoading={loading}
-      markdown={renderConversation(messages)}
+      markdown={`${body}${activity}${notice}`}
+      metadata={
+        <Detail.Metadata>
+          <Detail.Metadata.Label title="Model" text={model} icon={Icon.Stars} />
+          <Detail.Metadata.TagList title="Status">
+            <Detail.Metadata.TagList.Item
+              text={
+                loading
+                  ? "Responding"
+                  : error
+                    ? "Needs attention"
+                    : stopped
+                      ? "Stopped"
+                      : "Ready"
+              }
+              color={
+                error
+                  ? Color.Red
+                  : stopped
+                    ? Color.Orange
+                    : loading
+                      ? Color.Blue
+                      : Color.Green
+              }
+            />
+          </Detail.Metadata.TagList>
+          <Detail.Metadata.Label
+            title="Messages"
+            text={String(chat.messages.length)}
+          />
+          <Detail.Metadata.Separator />
+          <Detail.Metadata.Label
+            title="History"
+            text={historyEnabled() ? "Local saving enabled" : "Not saved"}
+            icon={Icon.Shield}
+          />
+        </Detail.Metadata>
+      }
       actions={
         <ActionPanel>
-          <Action
-            title="Follow Up"
-            icon={Icon.Message}
-            onAction={() => push(<FollowUpForm onSubmit={(prompt) => sendFrom(messages, prompt)} />)}
-          />
-          {lastAssistant ? <Action.CopyToClipboard title="Copy Last Response" content={lastAssistant} /> : null}
-          {lastAssistant ? <Action.Paste title="Paste Last Response" content={lastAssistant} /> : null}
+          <ActionPanel.Section title="Conversation">
+            {loading ? (
+              <Action
+                title="Stop Response"
+                icon={Icon.Stop}
+                onAction={() => controller.current?.abort()}
+              />
+            ) : (
+              <>
+                {error || stopped ? retryAction : continueAction}
+                {error || stopped ? continueAction : retryAction}
+              </>
+            )}
+          </ActionPanel.Section>
+          {answer && (
+            <ActionPanel.Section title="Use Response">
+              <Action.CopyToClipboard
+                title="Copy Response"
+                content={answer}
+                shortcut={Keyboard.Shortcut.Common.Copy}
+              />
+              <Action.Paste title="Paste Response" content={answer} />
+            </ActionPanel.Section>
+          )}
+          <ActionPanel.Section title="Keep">
+            <Action.CopyToClipboard
+              title="Copy Conversation as Markdown"
+              content={conversationMarkdown(chat)}
+            />
+            {!loading && historyEnabled() && (
+              <Action
+                title={chat.pinned ? "Unpin Conversation" : "Pin Conversation"}
+                icon={Icon.Pin}
+                onAction={async () => {
+                  const next = { ...chat, pinned: !chat.pinned };
+                  update(next);
+                  await persist(next);
+                }}
+              />
+            )}
+          </ActionPanel.Section>
         </ActionPanel>
       }
     />

@@ -2,12 +2,18 @@
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "relay-ai",
   "title": "Relay AI",
-  "description": "Minimal Raycast AI for ChatMock and any OpenAI-compatible endpoint.",
+  "description": "Your personal AI workspace: conversations, reusable prompts, and writing tools for any OpenAI-compatible endpoint.",
   "icon": "icon.png",
   "author": "jonathan-geva",
   "license": "MIT",
-  "platforms": ["Windows", "macOS"],
-  "categories": ["Productivity", "Developer Tools"],
+  "platforms": [
+    "Windows",
+    "macOS"
+  ],
+  "categories": [
+    "Productivity",
+    "Developer Tools"
+  ],
   "preferences": [
     {
       "name": "baseUrl",
@@ -43,13 +49,22 @@
       "title": "System Prompt",
       "description": "Optional system prompt added to every conversation.",
       "placeholder": "You are a concise, helpful assistant."
+    },
+    {
+      "name": "saveHistory",
+      "type": "checkbox",
+      "required": false,
+      "title": "Conversation History",
+      "label": "Save conversations on this device",
+      "description": "Disable to stop saving future conversations. Existing history can be deleted from the workspace.",
+      "default": true
     }
   ],
   "commands": [
     {
       "name": "chat",
-      "title": "AI Chat",
-      "description": "Chat with your OpenAI-compatible model",
+      "title": "Relay AI",
+      "description": "Start conversations, browse prompts, and return to saved chats",
       "mode": "view"
     },
     {
@@ -61,7 +76,7 @@
         {
           "name": "prompt",
           "type": "text",
-          "placeholder": "Ask anything…",
+          "placeholder": "Ask anything...",
           "required": true
         }
       ]
@@ -75,13 +90,25 @@
     {
       "name": "improve-writing",
       "title": "Improve Selected Writing",
-      "description": "Rewrite selected text and paste the improved version",
-      "mode": "no-view"
+      "description": "Review and improve selected writing, then copy or paste the result",
+      "mode": "view"
     },
     {
       "name": "models",
       "title": "Models",
       "description": "Fetch models from the configured endpoint and choose a default",
+      "mode": "view"
+    },
+    {
+      "name": "prompts",
+      "title": "Prompt Library",
+      "description": "Reusable prompts for writing, summarizing, translating, and coding",
+      "mode": "view"
+    },
+    {
+      "name": "setup-chatmock",
+      "title": "Set Up ChatMock",
+      "description": "Automatically install ChatMock, sign in, and connect Relay to your local server",
       "mode": "view"
     }
   ],
@@ -98,9 +125,15 @@
     "typescript": "^5.8.2"
   },
   "scripts": {
-    "dev": "ray develop",
-    "build": "ray build -e dist",
+    "dev": "ray develop -t release",
+    "build": "ray build -t release -e dist -o dist",
     "lint": "ray lint",
-    "fix-lint": "ray lint --fix"
+    "fix-lint": "ray lint --fix",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.ts tests/*.test.mjs",
+    "lint:code": "eslint src tests"
+  },
+  "engines": {
+    "node": ">=22.22.2"
   }
 }

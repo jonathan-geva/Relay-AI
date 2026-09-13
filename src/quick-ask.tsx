@@ -1,31 +1,19 @@
-import { Detail, showToast, Toast } from "@raycast/api";
+import { Detail } from "@raycast/api";
 import { useEffect, useState } from "react";
-import { ChatMessage, complete, getDefaultModel } from "./api";
-
-export default function Command(props: { arguments: { prompt: string } }) {
-  const prompt = props.arguments.prompt;
-  const [markdown, setMarkdown] = useState("_Thinking…_");
-  const [loading, setLoading] = useState(true);
-
+import { getDefaultModel } from "./api";
+import { ChatView } from "./chat-view";
+export default function Command({
+  arguments: args,
+}: {
+  arguments: { prompt: string };
+}) {
+  const [model, setModel] = useState("");
   useEffect(() => {
-    (async () => {
-      try {
-        const model = await getDefaultModel();
-        const messages: ChatMessage[] = [{ role: "user", content: prompt }];
-        const answer = await complete(messages, model, setMarkdown);
-        setMarkdown(answer || "_No text returned._");
-      } catch (error) {
-        setMarkdown("### Request failed\n\nOpen ChatMock and make sure the local server is running.");
-        await showToast({
-          style: Toast.Style.Failure,
-          title: "AI request failed",
-          message: error instanceof Error ? error.message : String(error),
-        });
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [prompt]);
-
-  return <Detail isLoading={loading} navigationTitle="Quick Ask" markdown={markdown} />;
+    void getDefaultModel().then(setModel);
+  }, []);
+  return model ? (
+    <ChatView initialPrompt={args.prompt} model={model} />
+  ) : (
+    <Detail isLoading markdown="Preparing Relay…" />
+  );
 }
