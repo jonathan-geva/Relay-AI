@@ -125,8 +125,8 @@
     "typescript": "^5.8.2"
   },
   "scripts": {
-    "dev": "ray develop",
-    "build": "ray build -e dist",
+    "dev": "ray develop -t release",
+    "build": "ray build -t release -e dist -o dist",
     "lint": "ray lint",
     "fix-lint": "ray lint --fix",
     "typecheck": "tsc --noEmit",
