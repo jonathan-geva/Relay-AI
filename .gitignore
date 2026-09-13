@@ -3,3 +3,5 @@ dist/
 .env
 .DS_Store
 raycast-env.d.ts
+__pycache__/
+*.pyc

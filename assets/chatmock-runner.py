@@ -1,6 +1,7 @@
 """Relay's adapter for the pinned ChatMock version. No credentials are printed."""
 import argparse
 import hmac
+import os
 import sys
 import threading
 from pathlib import Path
@@ -27,7 +28,11 @@ else:
     token = Path(args.token_file).read_text().strip()
     if len(token) != 64:
         raise RuntimeError("Invalid Relay server token")
-    app = create_app()
+    app = create_app(
+        reasoning_effort=os.getenv("CHATGPT_LOCAL_REASONING_EFFORT", "medium"),
+        reasoning_summary=os.getenv("CHATGPT_LOCAL_REASONING_SUMMARY", "auto"),
+        reasoning_compat=os.getenv("CHATGPT_LOCAL_REASONING_COMPAT", "o3"),
+    )
 
     @app.before_request
     def relay_auth():

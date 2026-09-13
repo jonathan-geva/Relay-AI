@@ -33,6 +33,19 @@ export const newConversation = (
 
 // A record per conversation prevents concurrent chats from overwriting each other.
 const PREFIX = "relay-chat:";
+function normalizeMessage(message: ChatMessage): ChatMessage {
+  if (message.role !== "assistant" || message.reasoning) return message;
+  const match = message.content.match(
+    /^\s*<think\b[^>]*>([\s\S]*?)<\/think\s*>\s*/i,
+  );
+  if (!match) return message;
+  return {
+    ...message,
+    content: message.content.slice(match[0].length),
+    reasoning: match[1].trim(),
+  };
+}
+
 export async function getConversations(): Promise<Conversation[]> {
   const items = await LocalStorage.allItems();
   const result: Conversation[] = [];
@@ -40,7 +53,11 @@ export async function getConversations(): Promise<Conversation[]> {
     if (!key.startsWith(PREFIX) || typeof value !== "string") continue;
     try {
       const item = JSON.parse(value);
-      if (item.id && Array.isArray(item.messages)) result.push(item);
+      if (item.id && Array.isArray(item.messages))
+        result.push({
+          ...item,
+          messages: item.messages.map(normalizeMessage),
+        });
     } catch {
       /* Preserve unreadable records. */
     }
@@ -82,7 +99,17 @@ export function conversationMarkdown(chat: Conversation) {
     `# ${chat.title}\n\nModel: ${chat.model}\n\n` +
     chat.messages
       .filter((m) => m.role !== "system")
-      .map((m) => `## ${m.role === "user" ? "You" : "Relay"}\n\n${m.content}`)
+      .map((m) => {
+        const thinking =
+          m.role === "assistant" && m.reasoning
+            ? `> **Thinking**\n>\n${m.reasoning
+                .trim()
+                .split("\n")
+                .map((line) => `> ${line}`)
+                .join("\n")}\n\n`
+            : "";
+        return `## ${m.role === "user" ? "You" : "Relay"}\n\n${thinking}${m.content}`;
+      })
       .join("\n\n---\n\n")
   );
 }

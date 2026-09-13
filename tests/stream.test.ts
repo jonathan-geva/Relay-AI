@@ -81,6 +81,53 @@ test("supports legacy text deltas and empty usage events", async () => {
     "legacy",
   );
 });
+test("separates ChatMock reasoning tags split across stream chunks", async () => {
+  const updates: string[] = [];
+  const thoughts: string[] = [];
+  const result = await readCompletion(
+    stream(
+      `${chunk("<thi")}\n${chunk("nk>**Planning friendly")}\n${chunk(" greeting response**</think>")}\n${chunk("Nice to meet you, Joni!")}\n`,
+    ),
+    (text) => updates.push(text),
+    (text) => thoughts.push(text),
+  );
+  assert.equal(result, "Nice to meet you, Joni!");
+  assert.deepEqual(updates, ["Nice to meet you, Joni!"]);
+  assert.equal(thoughts.at(-1), "**Planning friendly greeting response**");
+});
+test("separates reasoning tags in non-streaming responses", async () => {
+  const thoughts: string[] = [];
+  const response = Response.json({
+    choices: [
+      {
+        message: {
+          content: "<think>**Planning a response**</think>Your name is Joni.",
+        },
+      },
+    ],
+  });
+  assert.equal(
+    await readCompletion(response, undefined, (text) => thoughts.push(text)),
+    "Your name is Joni.",
+  );
+  assert.deepEqual(thoughts, ["**Planning a response**"]);
+});
+test("streams o3-compatible reasoning separately from answer text", async () => {
+  const updates: string[] = [];
+  const thoughts: string[] = [];
+  const reasoning = (text: string) =>
+    `data: ${JSON.stringify({ choices: [{ delta: { reasoning: { content: [{ type: "text", text }] } } }] })}`;
+  const result = await readCompletion(
+    stream(
+      `${reasoning("Checking context")}\n${chunk("Your name is Joni.")}\n`,
+    ),
+    (text) => updates.push(text),
+    (text) => thoughts.push(text),
+  );
+  assert.equal(result, "Your name is Joni.");
+  assert.deepEqual(updates, ["Your name is Joni."]);
+  assert.deepEqual(thoughts, ["Checking context"]);
+});
 test("propagates cancellation from the response reader", async () => {
   const response = new Response(
     new ReadableStream({

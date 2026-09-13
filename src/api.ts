@@ -3,7 +3,7 @@ import { readCompletion } from "./stream";
 import { managedConnection, MANAGED_KEY } from "./chatmock";
 
 export type Role = "system" | "user" | "assistant";
-export type ChatMessage = { role: Role; content: string };
+export type ChatMessage = { role: Role; content: string; reasoning?: string };
 
 type Preferences = {
   baseUrl: string;
@@ -72,8 +72,10 @@ export async function complete(
   model: string,
   onDelta?: (fullText: string) => void,
   signal?: AbortSignal,
+  onReasoning?: (fullText: string) => void,
 ): Promise<string> {
-  const { baseUrl, apiKey } = (await managedConnection()) || config();
+  const managed = await managedConnection();
+  const { baseUrl, apiKey } = managed || config();
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
     signal: signal
@@ -82,8 +84,12 @@ export async function complete(
     headers: headers(apiKey),
     body: JSON.stringify({
       model,
-      messages: withSystemPrompt(messages),
+      messages: withSystemPrompt(messages).map(({ role, content }) => ({
+        role,
+        content,
+      })),
       stream: Boolean(onDelta),
+      ...(managed ? { reasoning: { summary: "auto" } } : {}),
     }),
   });
 
@@ -94,5 +100,5 @@ export async function complete(
     );
   }
 
-  return readCompletion(response, onDelta);
+  return readCompletion(response, onDelta, onReasoning);
 }

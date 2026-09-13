@@ -20,6 +20,14 @@ import {
   saveConversation,
 } from "./storage";
 
+function quoteMarkdown(text: string) {
+  return text
+    .trim()
+    .split("\n")
+    .map((line) => `> ${line}`)
+    .join("\n");
+}
+
 function FollowUpForm({ onSubmit }: { onSubmit: (prompt: string) => void }) {
   const { pop } = useNavigation();
   const [error, setError] = useState<string>();
@@ -104,24 +112,49 @@ export function ChatView({
     const start = { ...current.current, messages: base, updatedAt: Date.now() };
     update(start);
     let partial = "";
+    let reasoning = "";
+    const updateAssistant = () =>
+      update({
+        ...start,
+        messages: [
+          ...base,
+          {
+            role: "assistant",
+            content: partial,
+            ...(reasoning ? { reasoning } : {}),
+          },
+        ],
+      });
     try {
       const answer = await complete(
         base,
         model,
         (text) => {
           partial = text;
-          update({
-            ...start,
-            messages: [...base, { role: "assistant", content: text }],
-          });
+          updateAssistant();
         },
         request.signal,
+        (text) => {
+          reasoning = text;
+          updateAssistant();
+        },
       );
       if (!answer.trim())
         throw new Error(
           "The model returned no text. Retry or choose another model.",
         );
-      const finished = { ...current.current, updatedAt: Date.now() };
+      const finished = {
+        ...start,
+        messages: [
+          ...base,
+          {
+            role: "assistant" as const,
+            content: answer,
+            ...(reasoning ? { reasoning } : {}),
+          },
+        ],
+        updatedAt: Date.now(),
+      };
       update(finished);
       await persist(finished);
     } catch (e) {
@@ -131,9 +164,17 @@ export function ChatView({
         setError(e instanceof Error ? e.message : String(e));
       const saved = {
         ...start,
-        messages: partial
-          ? [...base, { role: "assistant" as const, content: partial }]
-          : base,
+        messages:
+          partial || reasoning
+            ? [
+                ...base,
+                {
+                  role: "assistant" as const,
+                  content: partial,
+                  ...(reasoning ? { reasoning } : {}),
+                },
+              ]
+            : base,
       };
       update(saved);
       await persist(saved);
@@ -160,13 +201,24 @@ export function ChatView({
       : chat.messages;
   const body = chat.messages
     .filter((m) => m.role !== "system")
-    .map((m) => `### ${m.role === "user" ? "You" : "Relay"}\n\n${m.content}`)
+    .map((m) => {
+      if (m.role === "user") return `### You\n\n${m.content}`;
+      const thinking = m.reasoning
+        ? `> **Thinking**\n>\n${quoteMarkdown(m.reasoning)}\n\n`
+        : "";
+      const answer = m.content
+        ? `#### Answer\n\n${m.content}`
+        : loading
+          ? "_Composing the answer…_"
+          : "";
+      return `### Relay\n\n${thinking}${answer}`;
+    })
     .join("\n\n---\n\n");
   return (
     <Detail
       navigationTitle={chat.title}
       isLoading={loading}
-      markdown={`${body}${loading ? "\n\n_Responding…_" : ""}${stopped ? "\n\n_Response stopped. You can retry or continue._" : ""}${error ? `\n\n---\n\n### Could not complete response\n\n${error}\n\nCheck your endpoint and model in extension preferences, then retry.` : ""}`}
+      markdown={`${body}${loading ? "\n\n_Generating…_" : ""}${stopped ? "\n\n_Response stopped. You can retry or continue._" : ""}${error ? `\n\n---\n\n### Could not complete response\n\n${error}\n\nCheck your endpoint and model in extension preferences, then retry.` : ""}`}
       metadata={
         <Detail.Metadata>
           <Detail.Metadata.Label title="Model" text={model} icon={Icon.Stars} />

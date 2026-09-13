@@ -157,6 +157,20 @@ try {
     assert.deepEqual(await relay.getConversations(), []);
     assert.equal(items.get("default-model"), "alpha");
   });
+  await test("legacy think tags migrate into separate reasoning", async () => {
+    const chat = relay.newConversation("Legacy", "alpha");
+    chat.messages.push({
+      role: "assistant",
+      content: "<think>**Planning a greeting**</think>Hello Joni!",
+    });
+    await relay.saveConversation(chat);
+    const loaded = (await relay.getConversations()).find(
+      (item) => item.id === chat.id,
+    );
+    assert.equal(loaded.messages[1].reasoning, "**Planning a greeting**");
+    assert.equal(loaded.messages[1].content, "Hello Joni!");
+    await relay.clearHistory();
+  });
   await test("custom prompts update and delete by ID", async () => {
     const prompt = {
       id: "custom",

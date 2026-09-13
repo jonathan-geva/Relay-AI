@@ -86,6 +86,8 @@ export class ChatMockManager {
     return {
       ...process.env,
       CHATGPT_LOCAL_HOME: join(this.root, "account"),
+      CHATGPT_LOCAL_REASONING_COMPAT: "o3",
+      CHATGPT_LOCAL_REASONING_SUMMARY: "auto",
       PYTHONIOENCODING: "utf-8",
       PYTHONUNBUFFERED: "1",
       UV_PYTHON_INSTALL_DIR: join(this.root, "python"),
