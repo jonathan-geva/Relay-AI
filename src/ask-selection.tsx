@@ -5,11 +5,12 @@ import {
   getSelectedText,
   Icon,
 } from "@raycast/api";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Compose } from "./compose";
 export default function Command() {
   const [selected, setSelected] = useState<string>();
   const [error, setError] = useState<string>();
+  const started = useRef(false);
   async function read() {
     setError(undefined);
     try {
@@ -24,6 +25,8 @@ export default function Command() {
     }
   }
   useEffect(() => {
+    if (started.current) return;
+    started.current = true;
     void read();
   }, []);
   if (selected !== undefined)
@@ -31,6 +34,7 @@ export default function Command() {
       <Compose
         title="Ask About Selected Text"
         initialText={`Help me understand the following text:\n\n${selected}`}
+        conversationTitle={`Ask about: ${selected.replace(/\s+/g, " ").slice(0, 52)}`}
       />
     );
   return (

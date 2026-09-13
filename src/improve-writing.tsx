@@ -5,11 +5,12 @@ import {
   getSelectedText,
   Icon,
 } from "@raycast/api";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Compose } from "./compose";
 export default function Command() {
   const [text, setText] = useState<string>();
   const [error, setError] = useState<string>();
+  const started = useRef(false);
   async function read() {
     setError(undefined);
     try {
@@ -22,6 +23,8 @@ export default function Command() {
     }
   }
   useEffect(() => {
+    if (started.current) return;
+    started.current = true;
     void read();
   }, []);
   return text !== undefined ? (

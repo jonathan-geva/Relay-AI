@@ -8,10 +8,12 @@ export function Compose({
   instruction = "",
   title = "New Conversation",
   initialText = "",
+  conversationTitle,
 }: {
   instruction?: string;
   title?: string;
   initialText?: string;
+  conversationTitle?: string;
 }) {
   const { push } = useNavigation();
   const [models, setModels] = useState<string[]>([]);
@@ -65,9 +67,10 @@ export function Compose({
                         : v.prompt.trim()
                     }
                     initialTitle={
-                      instruction
+                      conversationTitle ||
+                      (instruction
                         ? `${title}: ${v.prompt.trim().replace(/\s+/g, " ").slice(0, 48)}`
-                        : undefined
+                        : undefined)
                     }
                     model={model}
                   />,

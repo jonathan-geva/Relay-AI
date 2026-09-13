@@ -226,11 +226,44 @@ export function ChatView({
       return `### Relay\n\n${thinking}${answer}`;
     })
     .join("\n\n---\n\n");
+  const waitingForFirstToken =
+    loading && chat.messages.at(-1)?.role !== "assistant";
+  const activity = waitingForFirstToken
+    ? `\n\n---\n\n### Relay\n\n_Connecting to ${model}…_`
+    : "";
+  const notice = stopped
+    ? "\n\n_Response stopped. Retry or continue the conversation._"
+    : error
+      ? `\n\n---\n\n### Could not complete response\n\n${error}\n\nCheck your connection and model, then retry.`
+      : "";
+  const continueAction = (
+    <Action
+      title="Continue Conversation"
+      icon={Icon.Message}
+      onAction={() =>
+        push(
+          <FollowUpForm
+            onSubmit={(prompt) =>
+              void send([...chat.messages, { role: "user", content: prompt }])
+            }
+          />,
+        )
+      }
+    />
+  );
+  const retryAction = (
+    <Action
+      title={error || stopped ? "Retry Response" : "Regenerate Response"}
+      icon={Icon.ArrowClockwise}
+      shortcut={Keyboard.Shortcut.Common.Refresh}
+      onAction={() => void send(retryBase)}
+    />
+  );
   return (
     <Detail
       navigationTitle={chat.title}
       isLoading={loading}
-      markdown={`${body}${loading ? "\n\n_Generating…_" : ""}${stopped ? "\n\n_Response stopped. You can retry or continue._" : ""}${error ? `\n\n---\n\n### Could not complete response\n\n${error}\n\nCheck your endpoint and model in extension preferences, then retry.` : ""}`}
+      markdown={`${body}${activity}${notice}`}
       metadata={
         <Detail.Metadata>
           <Detail.Metadata.Label title="Model" text={model} icon={Icon.Stars} />
@@ -245,7 +278,15 @@ export function ChatView({
                       ? "Stopped"
                       : "Ready"
               }
-              color={error ? Color.Orange : Color.Green}
+              color={
+                error
+                  ? Color.Red
+                  : stopped
+                    ? Color.Orange
+                    : loading
+                      ? Color.Blue
+                      : Color.Green
+              }
             />
           </Detail.Metadata.TagList>
           <Detail.Metadata.Label
@@ -271,28 +312,8 @@ export function ChatView({
               />
             ) : (
               <>
-                <Action
-                  title="Continue Conversation"
-                  icon={Icon.Message}
-                  onAction={() =>
-                    push(
-                      <FollowUpForm
-                        onSubmit={(prompt) =>
-                          void send([
-                            ...chat.messages,
-                            { role: "user", content: prompt },
-                          ])
-                        }
-                      />,
-                    )
-                  }
-                />
-                <Action
-                  title={error ? "Retry Request" : "Regenerate Response"}
-                  icon={Icon.ArrowClockwise}
-                  shortcut={Keyboard.Shortcut.Common.Refresh}
-                  onAction={() => void send(retryBase)}
-                />
+                {error || stopped ? retryAction : continueAction}
+                {error || stopped ? continueAction : retryAction}
               </>
             )}
           </ActionPanel.Section>

@@ -6,7 +6,7 @@ A native Raycast AI workspace for ChatMock and other OpenAI-compatible APIs, on 
 
 - Searchable conversation history, resume, pin, rename, delete, and Markdown copy.
 - Ten categorized prompt templates plus custom prompt creation, editing, duplication, and deletion.
-- Streaming responses, follow-ups, stop, retry/regenerate, copy, and paste.
+- Streaming responses with separate live reasoning, follow-ups, stop, retry/regenerate, copy, and paste.
 - Selected-text workflows with input review before sending.
 - Quick Ask using the same full conversation interface.
 - Model discovery, persistent defaults, fallback, and connection errors.
