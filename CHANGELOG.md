@@ -14,4 +14,5 @@
 - Streamable HTTP MCP tools with per-call confirmation and saved agents.
 - Repair/update of the pinned managed ChatMock installation.
 - Cross-platform CI, license and expanded regression/integration/React tests.
+- Verified upgrade to Raycast SDK 2.7.3, shared dependency bundles and zero dependency-audit findings.
 - Earlier audit fixes for parsing, corrupt data and vulnerable dependencies.

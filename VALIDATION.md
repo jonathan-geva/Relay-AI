@@ -31,8 +31,8 @@ Raycast still exposes no targetable window to Windows computer use, so no new na
 
 - Full Store lint fails only on the inherited author handle `jonathan-geva`, which returns 404. A real author handle is requested from the user.
 - Native Windows visual acceptance, native macOS/ARM acceptance and genuine Store screenshots remain pending.
-- The CI workflow targets Windows and macOS with Node 24; its remote execution status must be checked after pushing the branch.
-- Two low findings remain in Raycast's esbuild dependency. No forced incompatible transitive override is installed; the high-severity brace-expansion finding was resolved.
+- The feature implementation passed [Windows and macOS CI](https://github.com/jonathan-geva/Relay-AI/actions/runs/38083576582). The SDK update receives its own CI run after pushing; CI does not replace native window acceptance.
+- Raycast SDK 2.7.3 passed isolated build, TypeScript, lint, formatting and all 69 tests. The dependency audit now reports zero vulnerabilities, without a forced transitive override.
 - The system Node is 22.13.1, below the required minimum. The bundled 24.19.0 runtime and `start-relay.ps1` provide a compatible development path on this PC.
 
 See [RELEASE.md](RELEASE.md) for the native acceptance and Store checklist.

@@ -158,7 +158,7 @@
   ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "@raycast/api": "^1.101.0",
+    "@raycast/api": "^2.7.3",
     "@raycast/utils": "^2.3.0",
     "zod": "^3.25.76"
   },
