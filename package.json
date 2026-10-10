@@ -107,7 +107,7 @@
     },
     {
       "name": "setup-chatmock",
-      "title": "Set Up ChatMock",
+      "title": "Set up ChatMock",
       "description": "Automatically install ChatMock, sign in, and connect Relay to your local server",
       "mode": "view"
     }

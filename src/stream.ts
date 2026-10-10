@@ -1,23 +1,21 @@
 /** Separate visible output from reasoning, including ChatMock's think-tag mode. */
 class CompletionText {
   private pending = "";
-  private hidden = false;
+  private mode: "prefix" | "reasoning" | "answer" = "prefix";
   private answer = "";
   private thought = "";
 
   pushContent(delta: string, final = false) {
     this.pending += delta;
-    const open = "<think";
     const close = "</think>";
 
     while (this.pending) {
-      const lower = this.pending.toLowerCase();
-      if (this.hidden) {
-        const end = lower.indexOf(close);
-        if (end >= 0) {
-          this.thought += this.pending.slice(0, end);
-          this.pending = this.pending.slice(end + close.length);
-          this.hidden = false;
+      if (this.mode === "reasoning") {
+        const end = this.pending.match(/<\/think\s*>/i);
+        if (end?.index !== undefined) {
+          this.thought += this.pending.slice(0, end.index);
+          this.pending = this.pending.slice(end.index + end[0].length);
+          this.mode = "answer";
           continue;
         }
         if (final) {
@@ -34,31 +32,25 @@ class CompletionText {
         break;
       }
 
-      const start = lower.indexOf(open);
-      if (start >= 0) {
-        this.answer += this.pending.slice(0, start);
-        const tagEnd = this.pending.indexOf(">", start + open.length);
-        if (tagEnd < 0) {
-          this.pending = this.pending.slice(start);
-          if (final) this.pending = "";
-          break;
+      // Only a leading, complete reasoning tag is protocol markup. Tags in
+      // ordinary explanations and code must stay in the visible answer.
+      if (this.mode === "prefix") {
+        const prefix = this.pending.trimStart().toLowerCase();
+        const tag = this.pending.match(/^\s*<think(?:\s[^>]*)?>/i);
+        if (tag) {
+          this.pending = this.pending.slice(tag[0].length);
+          this.mode = "reasoning";
+          continue;
         }
-        this.pending = this.pending.slice(tagEnd + 1);
-        this.hidden = true;
-        continue;
+        if (
+          !final &&
+          ("<think>".startsWith(prefix) || /^<think\s[^>]*$/.test(prefix))
+        )
+          break;
+        this.mode = "answer";
       }
-
-      if (final) {
-        this.answer += this.pending.replace(/<\/think\s*>/gi, "");
-        this.pending = "";
-      } else {
-        const suffix = suffixThatStarts(this.pending, open);
-        this.answer += this.pending.slice(
-          0,
-          this.pending.length - suffix.length,
-        );
-        this.pending = suffix;
-      }
+      this.answer += this.pending;
+      this.pending = "";
       break;
     }
     return this.snapshot();
@@ -115,6 +107,7 @@ export async function readCompletion(
         message?: {
           content?: string;
           reasoning_summary?: string;
+          reasoning_content?: string;
           reasoning?: unknown;
         };
       }[];
@@ -123,7 +116,9 @@ export async function readCompletion(
       throw new Error(body.error.message || "Provider returned an error");
     const message = body.choices?.[0]?.message;
     const thought = reasoningText(
-      message?.reasoning_summary ?? message?.reasoning,
+      message?.reasoning_summary ??
+        message?.reasoning_content ??
+        message?.reasoning,
     );
     if (thought) appendReasoning(thought);
     return append(message?.content || "", true);
@@ -150,8 +145,10 @@ export async function readCompletion(
     const choice = chunk.choices?.[0];
     const thought = reasoningText(
       choice?.delta?.reasoning_summary ??
+        choice?.delta?.reasoning_content ??
         choice?.delta?.reasoning ??
         choice?.message?.reasoning_summary ??
+        choice?.message?.reasoning_content ??
         choice?.message?.reasoning,
     );
     if (thought) appendReasoning(thought);

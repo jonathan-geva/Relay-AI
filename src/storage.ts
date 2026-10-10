@@ -33,6 +33,30 @@ export const newConversation = (
 
 // A record per conversation prevents concurrent chats from overwriting each other.
 const PREFIX = "relay-chat:";
+function isMessage(value: unknown): value is ChatMessage {
+  if (!value || typeof value !== "object") return false;
+  const m = value as Partial<ChatMessage>;
+  return (
+    ["system", "user", "assistant"].includes(m.role || "") &&
+    typeof m.content === "string" &&
+    (m.reasoning === undefined || typeof m.reasoning === "string")
+  );
+}
+function isConversation(value: unknown): value is Conversation {
+  if (!value || typeof value !== "object") return false;
+  const c = value as Partial<Conversation>;
+  return (
+    typeof c.id === "string" &&
+    Boolean(c.id) &&
+    typeof c.title === "string" &&
+    typeof c.model === "string" &&
+    typeof c.updatedAt === "number" &&
+    Number.isFinite(c.updatedAt) &&
+    typeof c.pinned === "boolean" &&
+    Array.isArray(c.messages) &&
+    c.messages.every(isMessage)
+  );
+}
 function normalizeMessage(message: ChatMessage): ChatMessage {
   if (message.role !== "assistant" || message.reasoning) return message;
   const match = message.content.match(
@@ -53,7 +77,7 @@ export async function getConversations(): Promise<Conversation[]> {
     if (!key.startsWith(PREFIX) || typeof value !== "string") continue;
     try {
       const item = JSON.parse(value);
-      if (item.id && Array.isArray(item.messages))
+      if (isConversation(item))
         result.push({
           ...item,
           messages: item.messages.map(normalizeMessage),
@@ -74,12 +98,37 @@ export async function deleteConversation(id: string) {
   await LocalStorage.removeItem(PREFIX + id);
 }
 export async function clearHistory() {
-  for (const chat of await getConversations())
-    await deleteConversation(chat.id);
+  const items = await LocalStorage.allItems();
+  for (const key of Object.keys(items))
+    if (key.startsWith(PREFIX)) await LocalStorage.removeItem(key);
 }
 export async function getPrompts(): Promise<Prompt[]> {
   const raw = await LocalStorage.getItem<string>("relay-prompts");
-  return raw ? JSON.parse(raw) : [];
+  if (!raw) return [];
+  try {
+    const prompts: unknown = JSON.parse(raw);
+    if (
+      Array.isArray(prompts) &&
+      prompts.every((p: unknown) => {
+        if (!p || typeof p !== "object") return false;
+        const item = p as Partial<Prompt>;
+        return (
+          typeof item.id === "string" &&
+          Boolean(item.id) &&
+          typeof item.title === "string" &&
+          typeof item.description === "string" &&
+          typeof item.category === "string" &&
+          typeof item.instruction === "string"
+        );
+      })
+    )
+      return prompts;
+  } catch {
+    /* Preserve the original data instead of overwriting it. */
+  }
+  throw new Error(
+    "The saved prompt library is unreadable. Restore its relay-prompts record from a backup before editing; your saved data has been preserved.",
+  );
 }
 export async function savePrompt(prompt: Prompt) {
   const prompts = await getPrompts();

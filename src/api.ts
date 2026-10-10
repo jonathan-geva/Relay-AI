@@ -1,6 +1,7 @@
 import { getPreferenceValues, LocalStorage } from "@raycast/api";
 import { readCompletion } from "./stream";
 import { managedConnection, MANAGED_KEY } from "./chatmock";
+import { parseModelList } from "./model-list";
 
 export type Role = "system" | "user" | "assistant";
 export type ChatMessage = { role: Role; content: string; reasoning?: string };
@@ -16,7 +17,7 @@ function config() {
   const p = getPreferenceValues<Preferences>();
   return {
     ...p,
-    baseUrl: p.baseUrl.replace(/\/+$/, ""),
+    baseUrl: p.baseUrl.trim().replace(/\/+$/, ""),
   };
 }
 
@@ -38,11 +39,9 @@ export async function fetchModels(): Promise<string[]> {
     );
   }
 
-  const body = (await response.json()) as { data?: Array<{ id?: string }> };
-  return (body.data ?? [])
-    .map((model) => model.id)
-    .filter((id): id is string => typeof id === "string" && Boolean(id.trim()))
-    .sort((a, b) => a.localeCompare(b));
+  return parseModelList(await response.json()).sort((a, b) =>
+    a.localeCompare(b),
+  );
 }
 
 export async function getDefaultModel(): Promise<string> {

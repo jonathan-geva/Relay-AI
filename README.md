@@ -116,4 +116,4 @@ npm run lint
 
 The first four checks pass locally. Full Raycast Store lint also validates the author account; the inherited `jonathan-geva` handle currently receives a 404 from that remote validation. This does not affect local builds.
 
-See [DESIGN.md](DESIGN.md) for architecture and product decisions and [VALIDATION.md](VALIDATION.md) for the current verification record.
+See [DESIGN.md](DESIGN.md) for architecture and product decisions, [VALIDATION.md](VALIDATION.md) for the current verification record, and [AUDIT.md](AUDIT.md) for the October feature inventory and prioritized roadmap.

@@ -1,6 +1,6 @@
 # Relay AI design
 
-Last updated 13 September 2026. Relay is a native Raycast extension, so lists, forms, Markdown details, metadata, semantic colors, and action panels inherit the user's Raycast appearance and keyboard behavior.
+Last updated 10 October 2026. Relay is a native Raycast extension, so lists, forms, Markdown details, metadata, semantic colors, and action panels inherit the user's Raycast appearance and keyboard behavior.
 
 ## Product goals
 
@@ -49,6 +49,8 @@ flowchart LR
 ```
 
 `ChatView` owns the active request and response state. `api.ts` selects the managed or custom connection, adds the optional system prompt, and passes the response to the streaming parser. `stream.ts` accepts SSE and JSON, preserves split UTF-8 sequences, separates reasoning from visible output, and propagates cancellation. `storage.ts` stores each conversation under its own key to prevent concurrent chats from overwriting one another.
+
+The October polish pass added `reasoning_content` compatibility and restricted legacy think-tag parsing to a leading reasoning block, preserving tags in ordinary answer text. `model-list.ts` normalizes provider model lists for both custom discovery and ChatMock activation. History loading validates record shapes, clearing history removes every conversation key, and unreadable prompt data is preserved with a readable error. See [AUDIT.md](AUDIT.md) for the remaining gaps and the next feature priorities.
 
 Raycast development mode can clean up and remount React effects immediately. Relay defers request cancellation for one task and cancels that pending abort when the view remounts. Real navigation still aborts the request. Initial reads in selected-text commands are likewise guarded so the development remount does not capture the selection twice.
 
