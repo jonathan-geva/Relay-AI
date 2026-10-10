@@ -1,5 +1,7 @@
 # Relay AI audit and roadmap
 
+This is the historical audit before the complete-workspace implementation. Its feature gaps and local-check counts are superseded by [CHANGELOG.md](CHANGELOG.md), [README.md](README.md), and [VALIDATION.md](VALIDATION.md).
+
 Reviewed 10 October 2026. Baseline: [jonathan-geva/Relay-AI](https://github.com/jonathan-geva/Relay-AI), `main` commit `e2d1490`. Local fixes are on `fix/relay-audit-polish` and have not been pushed or installed into Raycast.
 
 Relay already has a useful text workspace. The next release should improve conversation control and reusable workflows, then add richer context. Store readiness and native acceptance need work before calling it finished.

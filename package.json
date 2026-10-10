@@ -3,7 +3,7 @@
   "name": "relay-ai",
   "title": "Relay AI",
   "description": "Your personal AI workspace: conversations, reusable prompts, and writing tools for any OpenAI-compatible endpoint.",
-  "icon": "icon.png",
+  "icon": "icon-relay-512.png",
   "author": "jonathan-geva",
   "license": "MIT",
   "platforms": [
@@ -110,11 +110,57 @@
       "title": "Set up ChatMock",
       "description": "Automatically install ChatMock, sign in, and connect Relay to your local server",
       "mode": "view"
+    },
+    {
+      "name": "ask-clipboard",
+      "title": "Ask About Clipboard",
+      "description": "Preview clipboard text and discuss it with the transcript visible",
+      "mode": "view"
+    },
+    {
+      "name": "prompt-run",
+      "title": "Run Prompt Preset",
+      "description": "Launch a saved prompt by its quicklink, name or ID",
+      "mode": "view",
+      "arguments": [
+        {
+          "name": "prompt",
+          "type": "text",
+          "placeholder": "Prompt name or ID",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "provider-settings",
+      "title": "Provider Profiles",
+      "description": "Configure Chat Completions, Responses and Anthropic endpoints",
+      "mode": "view"
+    },
+    {
+      "name": "organize",
+      "title": "Projects & Agents",
+      "description": "Shared project instructions and saved model/tool presets",
+      "mode": "view"
+    },
+    {
+      "name": "tools",
+      "title": "MCP Connections",
+      "description": "Manage Streamable HTTP tools with per-call approval",
+      "mode": "view"
+    },
+    {
+      "name": "data-management",
+      "title": "Backup, Restore & Sync",
+      "description": "JSON backups, shared prompts and synced-folder exchange",
+      "mode": "view"
     }
   ],
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "@raycast/api": "^1.101.0",
-    "@raycast/utils": "^2.3.0"
+    "@raycast/utils": "^2.3.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@raycast/eslint-config": "^2.2.0",
@@ -122,6 +168,8 @@
     "@types/react": "^19.0.0",
     "eslint": "^9.22.0",
     "prettier": "^3.5.3",
+    "react": "^19.3.0",
+    "react-test-renderer": "^19.3.0",
     "typescript": "^5.8.2"
   },
   "scripts": {
@@ -131,7 +179,8 @@
     "fix-lint": "ray lint --fix",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/*.test.ts tests/*.test.mjs",
-    "lint:code": "eslint src tests"
+    "lint:code": "eslint src tests",
+    "format:check": "prettier --check ."
   },
   "engines": {
     "node": ">=22.22.2"

@@ -1,3 +1,5 @@
+import { sseData } from "./sse.ts";
+import type { ChatMessage, Citation, ToolCall } from "./domain";
 /** Separate visible output from reasoning, including ChatMock's think-tag mode. */
 class CompletionText {
   private pending = "";
@@ -22,7 +24,9 @@ class CompletionText {
           this.thought += this.pending;
           this.pending = "";
         } else {
-          const suffix = suffixThatStarts(this.pending, close);
+          const suffix =
+            this.pending.match(/<\/think\s*$/i)?.[0] ||
+            suffixThatStarts(this.pending, close);
           this.thought += this.pending.slice(
             0,
             this.pending.length - suffix.length,
@@ -81,6 +85,7 @@ export async function readCompletion(
   response: Response,
   onDelta?: (text: string) => void,
   onReasoning?: (text: string) => void,
+  onMetadata?: (metadata: Partial<ChatMessage>) => void,
 ): Promise<string> {
   const completion = new CompletionText();
   let full = "";
@@ -104,17 +109,32 @@ export async function readCompletion(
     const body = (await response.json()) as {
       error?: { message?: string };
       choices?: {
+        finish_reason?: string;
         message?: {
           content?: string;
           reasoning_summary?: string;
           reasoning_content?: string;
           reasoning?: unknown;
+          tool_calls?: {
+            id: string;
+            function: { name: string; arguments: string };
+          }[];
+          annotations?: unknown[];
         };
       }[];
     };
     if (body.error)
       throw new Error(body.error.message || "Provider returned an error");
     const message = body.choices?.[0]?.message;
+    onMetadata?.({
+      finishReason: body.choices?.[0]?.finish_reason,
+      toolCalls: message?.tool_calls?.map((t) => ({
+        id: t.id,
+        name: t.function.name,
+        arguments: t.function.arguments,
+      })),
+      citations: citations(message?.annotations),
+    });
     const thought = reasoningText(
       message?.reasoning_summary ??
         message?.reasoning_content ??
@@ -123,13 +143,9 @@ export async function readCompletion(
     if (thought) appendReasoning(thought);
     return append(message?.content || "", true);
   }
-  if (!response.body) throw new Error("The API returned no response body.");
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  function consume(line: string): boolean {
-    if (!line.startsWith("data:")) return false;
-    const data = line.slice(5).trim();
+  const calls = new Map<number, ToolCall>();
+  function consume(data: string): boolean {
+    data = data.trim();
     if (data === "[DONE]") return true;
     if (!data) return false;
     let chunk;
@@ -143,6 +159,25 @@ export async function readCompletion(
     if (chunk.error)
       throw new Error(chunk.error.message || "Provider returned an error");
     const choice = chunk.choices?.[0];
+    if (choice?.finish_reason)
+      onMetadata?.({ finishReason: choice.finish_reason });
+    for (const t of choice?.delta?.tool_calls || []) {
+      const previous = calls.get(t.index) || {
+        id: t.id || "",
+        name: "",
+        arguments: "",
+      };
+      calls.set(t.index, {
+        id: t.id || previous.id,
+        name: previous.name + (t.function?.name || ""),
+        arguments: previous.arguments + (t.function?.arguments || ""),
+      });
+    }
+    if (calls.size) onMetadata?.({ toolCalls: [...calls.values()] });
+    const sources = citations(
+      choice?.delta?.annotations || choice?.message?.annotations,
+    );
+    if (sources.length) onMetadata?.({ citations: sources });
     const thought = reasoningText(
       choice?.delta?.reasoning_summary ??
         choice?.delta?.reasoning_content ??
@@ -157,25 +192,30 @@ export async function readCompletion(
     if (typeof delta === "string") append(delta);
     return false;
   }
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      buffer += done
-        ? decoder.decode()
-        : decoder.decode(value, { stream: true });
-      const lines = buffer.split(/\r?\n/);
-      buffer = lines.pop() || "";
-      for (const line of lines) if (consume(line)) return append("", true);
-      if (done) {
-        if (buffer) consume(buffer);
-        break;
-      }
-    }
-    return append("", true);
-  } finally {
-    await reader.cancel().catch(() => undefined);
-    reader.releaseLock();
-  }
+  for await (const data of sseData(response))
+    if (consume(data)) return append("", true);
+  return append("", true);
+}
+
+export function citations(values: unknown): Citation[] {
+  if (!Array.isArray(values)) return [];
+  return values.flatMap((v) => {
+    if (!v || typeof v !== "object") return [];
+    const a = v as {
+      url?: string;
+      title?: string;
+      url_citation?: { url?: string; title?: string };
+    };
+    const source = a.url_citation || a;
+    return typeof source.url === "string" && /^https?:\/\//i.test(source.url)
+      ? [
+          {
+            url: source.url,
+            title: typeof source.title === "string" ? source.title : source.url,
+          },
+        ]
+      : [];
+  });
 }
 
 function reasoningText(value: unknown): string {

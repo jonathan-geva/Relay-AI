@@ -1,61 +1,38 @@
 # Validation
 
-Last updated 10 October 2026 for branch `fix/relay-audit-polish`, based on `main` at `e2d1490`.
+Updated 10 October 2026 for `feat/relay-complete-workspace`, based on main `e2d1490` and audit fix `fed7ad7`.
 
 ## Automated checks
 
-The current implementation passes:
+- TypeScript, source ESLint, Prettier and the native Raycast release build pass.
+- All thirteen command entry points compile.
+- The original forty tests continue to pass.
+- The complete local suite passes 69 tests, including seven React interaction tests and twenty-one feature/integration tests.
+- Feature tests cover branching/editing, restore/trash, concurrent prompt records, variables, summaries, schema rejection, deletion-aware merges, secret exclusion, provider default isolation, bounded text/image files, sync exchange, SSE framing, all three protocols, citations, tool fragments, signed provider continuation, context budgets and import rollback.
+- React interaction tests mount the real ChatView under StrictMode with mocked Raycast controls and provider services. They cover persistent input, visible transcript, sending without navigation, draft preservation during streaming, queued context, Stop, development remounts, model switching, editing branches, restored drafts and cancellation of summaries.
+- The MCP test uses an actual local HTTP JSON-RPC fixture and the official client SDK. It verifies discovery, the model/tool/result loop, explicit approval, decline and default denial.
 
-- TypeScript type checking with `tsc --noEmit`.
-- ESLint across `src` and `tests`.
-- A native Raycast release build for all seven command entry points.
-- 40 automated tests: 17 stream parsing cases, 13 API and storage cases, eight ChatMock setup and lifecycle cases, and two request-lifecycle helper cases.
-- Prettier formatting, including Windows line endings.
+The React tests use a renderer for Raycast's component contracts. They are not native window acceptance tests. They emit a react-test-renderer deprecation warning; it is a development-only dependency.
 
-The API suite uses a temporary local HTTP server and exercises the real fetch and stream parsing paths. Only Raycast preferences and LocalStorage are mocked. Coverage includes authentication headers, system prompts, selected models, model defaults, HTTP failures, cancellation, JSON fallback, malformed streams, UTF-8 chunk boundaries, reasoning separation, history operations, and legacy `<think>` migration.
+## Live Windows checks
 
-The request-lifecycle tests exercise the abort scheduling helper used during a development remount and navigation. They do not render React components or operate the native Raycast UI.
+- The current API client discovers three models through the existing authenticated ChatMock 1.40 installation.
+- `gpt-5.6-sol` returned the exact answer `Relay audit OK`.
+- Managed web search used Responses, streamed 25 updates, and returned a source annotation linking to the official Raycast AI Chat manual.
+- A real image-input request described the replacement icon as two interlocking blue/purple speech bubbles.
+- The previous live continuation check correctly used earlier conversation context.
+- The old icon failed both Pillow verification and upstream image decoding. The replacement passes decoding and Raycast's 512×512 validation; attachment tests reject the damaged legacy file.
+- The development watcher builds and loads all thirteen commands with `ray develop -t release` using Node 24.19.0.
+- No user history was cleared or imported during testing; data tests use in-memory storage and disposable files. Existing ChatMock credentials were reused without being printed or exported.
 
-The October regression tests cover `reasoning_content` in SSE and JSON responses, literal and incomplete think tags, invalid or duplicated model IDs, malformed model-list responses, invalid conversation records, complete history deletion, and preservation of unreadable prompt data. The first regression run reproduced nine failures before the fixes.
+Raycast still exposes no targetable window to Windows computer use, so no new native screenshot/interactive acceptance claim is made. Live Anthropic and other paid API accounts were not used; those adapters are tested through protocol fixtures. Folder merge tests are local, not a claim that a particular cloud service was exercised.
 
-## October live verification
+## Remaining release gates
 
-- The existing managed ChatMock 1.40 installation and saved session were detected without reinstalling or signing in.
-- The current Relay API client discovered three models and received the exact response `Relay audit OK` from `gpt-5.6-sol` through the authenticated local connection.
-- A second request streamed 65 answer updates and correctly calculated a 20% increase followed by a 20% decrease as 96, or 4% below the original. A follow-up correctly used that conversation context.
-- These live prompts produced no reasoning events. Reasoning display compatibility is covered by automated protocol tests; it was not demonstrated by a new native UI test this session.
-- The managed server was already running and remained running after testing.
-- Windows computer use launched the installed Raycast app, but it exposed no targetable window. Interactive acceptance of the current patch remains outstanding.
-- Checks used bundled Node.js 24.19.0. The system Node.js is 22.13.1, below the package's minimum 22.22.2.
+- Full Store lint fails only on the inherited author handle `jonathan-geva`, which returns 404. A real author handle is requested from the user.
+- Native Windows visual acceptance, native macOS/ARM acceptance and genuine Store screenshots remain pending.
+- The CI workflow targets Windows and macOS with Node 24; its remote execution status must be checked after pushing the branch.
+- Two low findings remain in Raycast's esbuild dependency. No forced incompatible transitive override is installed; the high-severity brace-expansion finding was resolved.
+- The system Node is 22.13.1, below the required minimum. The bundled 24.19.0 runtime and `start-relay.ps1` provide a compatible development path on this PC.
 
-## Earlier Windows verification (September)
-
-- `npm run dev` compiles, imports, and watches the extension with Raycast's release target on Windows.
-- The automatic setup downloaded the pinned uv archive, verified its SHA-256 digest, installed managed Python and ChatMock 1.40 in a path containing spaces, and completed repeat installation without another download.
-- The actual runner passed start, authenticated health, rejection of unauthenticated requests, repeat start, stop, and restart checks.
-- An occupied-port test confirmed Relay reports the conflict without stopping the unrelated service.
-- A Python login fixture verified browser URL handoff, cancellation, and lock cleanup.
-- The managed ChatMock endpoint returned a real completion from `gpt-5.6-sol` through Relay's authenticated local configuration.
-- Native Raycast use confirmed automatic setup, conversation generation, Quick Ask, selected-text generation, separate reasoning display, and the corrected first-response lifecycle.
-
-## Current limitations
-
-- macOS and ARM archives use verified upstream hashes but have not received native interactive acceptance testing.
-- Full Raycast Store lint fails only on the inherited `jonathan-geva` author handle because Raycast's remote author lookup returns 404. Manifest title casing, icons, source lint, formatting, and local builds pass.
-- The dependency audit reports two low-severity findings in the Raycast API's transitive esbuild dependency. No forced transitive override is applied.
-- Five compatible brace-expansion patches removed the high-severity dependency finding found during the October audit.
-- Tools, images, attachments, browser actions, and cross-device synchronization are not implemented.
-- Full SSE event framing (multiline data or bare CR separators) and provider finish-reason warnings are not yet covered. Current tests cover the line-based Chat Completions streams used by the managed provider.
-
-## Manual release checklist
-
-1. Run `npm ci`, `npm run typecheck`, `npm run lint:code`, `npm test`, and `npm run build` from a clean checkout.
-2. Launch `npm run dev` and open every command from Raycast search.
-3. Send a new message and confirm reasoning streams separately before the final answer.
-4. Stop, retry, regenerate, and continue a conversation; verify the primary action changes appropriately.
-5. Run Quick Ask, Ask About Selected Text, and Improve Selected Writing from a fresh command window.
-6. Resume, rename, pin, export, and delete a test conversation.
-7. Create, duplicate, edit, run, and delete a custom prompt.
-8. Disable history and verify a new conversation is not persisted.
-9. Test an invalid endpoint and model for readable recovery actions.
-10. Repeat setup and chat acceptance on each release platform before publishing.
+See [RELEASE.md](RELEASE.md) for the native acceptance and Store checklist.

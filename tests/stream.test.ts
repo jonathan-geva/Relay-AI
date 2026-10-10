@@ -192,3 +192,13 @@ test("preserves literal think tags in explanations and code", async () => {
   const text = "The model uses `<think>reasoning</think>` before its answer.";
   assert.equal(await readCompletion(stream(`${chunk(text)}\n`)), text);
 });
+test("separates a whitespace closing think tag split across deltas", async () => {
+  const thoughts = [];
+  const answer = await readCompletion(
+    stream(`${chunk("<think>Plan</think ")}\n${chunk(">Answer")}\n`),
+    undefined,
+    (text) => thoughts.push(text),
+  );
+  assert.equal(answer, "Answer");
+  assert.equal(thoughts.at(-1), "Plan");
+});

@@ -40,6 +40,7 @@ export async function activateChatMock() {
   if (!stored || !models.includes(stored))
     await LocalStorage.setItem("chatmock-default-model", models[0]);
   await LocalStorage.setItem(MANAGED_KEY, true);
+  await LocalStorage.setItem("relay-active-provider", "managed");
   await LocalStorage.setItem(SETUP_DISMISSED_KEY, false);
   return models.length;
 }
