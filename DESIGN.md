@@ -1,71 +1,35 @@
-# Relay AI design
+# Relay design
 
-Last updated 13 September 2026. Relay is a native Raycast extension, so lists, forms, Markdown details, metadata, semantic colors, and action panels inherit the user's Raycast appearance and keyboard behavior.
+Updated 10 October 2026.
 
-## Product goals
+## Continuous native chat
 
-Relay should make common AI text work fast without hiding control from the user. The implementation follows five priorities:
+Raycast's Detail view has no editable input. Relay therefore uses a List with a controlled message bar, disabled filtering, a timeline and Markdown details. Typing does not navigate. Enter sends; during generation it queues the next turn. Latest Response and Full Transcript provide two views of the same conversation while the draft stays visible.
 
-1. Reliable streaming with cancellation, retry, readable failures, UTF-8 handling, and JSON fallback.
-2. One conversation experience shared by the workspace, Quick Ask, prompts, and selected-text commands.
-3. Clear separation between model reasoning and the answer presented to the user.
-4. Useful local organization through search, history, pins, titles, and reusable prompts.
-5. A self-contained ChatMock setup that does not require terminal commands, global Python, or administrator access.
+The shared ChatView owns request cancellation, queued inputs and transient attachments. A mounted ref and deferred abort protect React development remounts; a request controller prevents overlapping generations. New requests take a snapshot of their model, settings and context. Streaming updates preserve newer draft/settings state. Editing creates a branch, and summaries preserve original messages.
 
-## Research informing the scope
+## Data and provider boundaries
 
-- [Raycast AI Chat](https://manual.raycast.com/ai/ai-chat) informed persistent history and continuation.
-- [PromptLab](https://www.raycast.com/HelloImSteven/promptlab) informed reusable workflows and custom prompts.
-- [ChatGPT for Raycast](https://www.raycast.com/abielzulio/chatgpt) informed quick access and history controls.
-- [Raycast AI presets](https://www.raycast.com/changelog/macos/1-72-0) informed explicit instructions and model selection before submission.
-- [ChatMock](https://github.com/RayBytes/ChatMock) defines the managed provider and authentication flow.
-- [uv managed Python](https://docs.astral.sh/uv/guides/install-python/) provides the isolated runtime used by automatic setup.
+`domain.ts` defines versioned records and validates portable data. Conversation, prompt, project and agent records each have their own LocalStorage key. Legacy conversations normalize on read; the old prompt array migrates without overwriting individual records. Archive is a flag; deletion retains timestamped records for restore and sync. Backup import validates first and rolls back failed writes.
 
-Early research also reviewed Sider and Merlin. Repository inspection established Raycast as the product surface, so the final design favors native Raycast patterns over browser-extension UI patterns.
+Provider profiles and secrets use separate keys. Portable exports intentionally exclude both. Provider fingerprints scope model defaults and identify the destination of a conversation. Unknown legacy destinations and changed endpoints require confirmation before sending existing history.
 
-## User experience
+`api.ts` manages generation and approved tool loops. `protocols.ts` serializes Chat Completions, Responses and Anthropic requests and streams their results. `sse.ts` handles UTF-8 and complete event framing with legacy JSON-line tolerance. Raw provider thinking/output items are retained for valid tool continuation. MCP uses the official SDK with Streamable HTTP; each call requires approval. Agents restrict the discovered tool set.
 
-The workspace groups launch actions before saved work, then separates pinned and recent conversations. Blue represents conversations, purple prompts, orange models, yellow pins, and semantic status colors indicate responding, ready, stopped, or failed states.
+`attachments.ts` bounds text/image input and validates image containers before building provider content parts. Web-search requests use provider capability controls and render source annotations. Managed ChatMock search uses Responses because its Chat Completions translation omits those annotations.
 
-Every generation uses the same response view. While waiting for the first token, Relay shows the active model. Reasoning appears in a quoted **Thinking** section and streams independently from the **Answer** section. Stop is the primary action during generation. Continue is primary after success; Retry becomes primary after cancellation or failure.
+Folder sync is an opt-in exchange through a user-selected, already-synced directory. Each device writes a separate atomic JSON file. Records merge by modified/deleted timestamps, with deterministic ties. API keys, server keys and account sessions stay device-local. This avoids inventing a Relay service or cloud account.
 
-Selected-text workflows capture the selection once, place it in an editable form, and require an explicit send. Generated text is never inserted into another application automatically. Selection conversations use a short excerpt in their history title so repeated actions remain distinguishable.
+## Research
 
-Empty, disconnected, failed, stopped, setup, and history-disabled states all provide a next action. If model discovery fails, the configured fallback remains available.
+The September research is preserved in [AUDIT.md](AUDIT.md) and the earlier “Build out Relay AI extension” chat. Current implementation draws on [Raycast AI Chat](https://manual.raycast.com/ai/ai-chat), [PromptLab](https://www.raycast.com/HelloImSteven/promptlab), and [ChatGPT for Raycast](https://www.raycast.com/abielzulio/chatgpt). Native UI contracts come from the [Raycast List API](https://developers.raycast.com/api-reference/user-interface/list). Provider contracts were checked against [OpenAI streaming events](https://developers.openai.com/api/reference/resources/responses/streaming-events), [Anthropic streaming](https://platform.claude.com/docs/en/build-with-claude/streaming), and [ChatMock](https://github.com/RayBytes/ChatMock).
 
-## Architecture
+## Icon
 
-```mermaid
-flowchart LR
-  A[Raycast commands] --> B[Compose form]
-  A --> C[Workspace and history]
-  B --> D[Shared ChatView]
-  C --> D
-  D --> E[OpenAI-compatible API client]
-  E --> F[Custom provider]
-  E --> G[Managed ChatMock server]
-  G --> H[ChatGPT account session]
-  D --> I[Raycast LocalStorage]
-```
+The inherited icon PNG was truncated despite passing Raycast's dimension check. A new icon was created with the built-in ImageGen tool and prepared as `assets/icon-relay-512.png` for Raycast's required 512×512 size. The old asset is retained without being referenced.
 
-`ChatView` owns the active request and response state. `api.ts` selects the managed or custom connection, adds the optional system prompt, and passes the response to the streaming parser. `stream.ts` accepts SSE and JSON, preserves split UTF-8 sequences, separates reasoning from visible output, and propagates cancellation. `storage.ts` stores each conversation under its own key to prevent concurrent chats from overwriting one another.
+Generation prompt: “A polished square app icon for the Relay AI Raycast extension: a compact luminous blue-to-violet connected speech-bubble / relay-loop symbol on a rich dark navy rounded square. Two connected nodes suggest continuous conversation. Subtle dimensional lighting, crisp thick contours, centered with generous padding. No letters, words, watermark, surrounding mockup or devices. Single opaque square icon.”
 
-Raycast development mode can clean up and remount React effects immediately. Relay defers request cancellation for one task and cancels that pending abort when the view remounts. Real navigation still aborts the request. Initial reads in selected-text commands are likewise guarded so the development remount does not capture the selection twice.
+## Boundaries
 
-## Automatic ChatMock setup
-
-The setup view combines installation, browser sign-in, local server startup, connection activation, and model selection. It supports progress, cancellation, reauthentication, status refresh, log access, server stop, and returning to custom API settings.
-
-ChatMock is pinned to PyPI version 1.40. uv is pinned to version 0.12.13, and every supported archive has an embedded SHA-256 digest from the upstream release metadata. Relay downloads archives directly and never executes a remote shell installer.
-
-The runner binds to loopback port 8317 and requires a random 256-bit local access key. Authenticated health and stop endpoints allow Relay to identify and control its server without trusting a stored process ID. A setup lock prevents overlapping installation or login operations. Managed and custom model defaults use separate storage keys.
-
-## Data boundaries
-
-The provider receives conversation messages and the optional system prompt. Raycast LocalStorage holds conversations, custom prompts, setup state, and model defaults. The managed ChatMock account session stays in ChatMock's private support directory. Conversation exports exclude API keys and account credentials.
-
-History is optional. Turning it off prevents future writes without deleting existing records. Partial streamed output is preserved after cancellation or a provider failure so useful work is not lost.
-
-## Deferred scope
-
-Browser control, autonomous tool execution, images, attachments, provider-specific feature comparisons, synchronization, and collaborative history need contracts beyond the current OpenAI-compatible text interface. They remain outside this release.
+The main input is Raycast's single-line message bar; no custom bottom composer is available in this API. Screenshots are selected files, not automatic screen capture. Cloud exchange needs an existing synced folder. MCP needs existing HTTP endpoints and authentication; hosted services, OAuth login flows, stdio servers, PDF/audio/video extraction and arbitrary shell execution are not part of this build. External author identity, native macOS verification and genuine Store screenshots remain release gates.

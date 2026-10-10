@@ -138,3 +138,67 @@ test("propagates cancellation from the response reader", async () => {
   );
   await assert.rejects(readCompletion(response), { name: "AbortError" });
 });
+
+test("streams reasoning_content separately from the visible answer", async () => {
+  const thoughts: string[] = [];
+  const event = JSON.stringify({
+    choices: [{ delta: { reasoning_content: "Checking the facts" } }],
+  });
+  assert.equal(
+    await readCompletion(
+      stream(`data: ${event}\n${chunk("Answer")}\n`),
+      undefined,
+      (t) => thoughts.push(t),
+    ),
+    "Answer",
+  );
+  assert.deepEqual(thoughts, ["Checking the facts"]);
+});
+
+test("reads reasoning_content from JSON responses", async () => {
+  const thoughts: string[] = [];
+  const response = Response.json({
+    choices: [
+      {
+        message: { content: "Answer", reasoning_content: "Checking the facts" },
+      },
+    ],
+  });
+  assert.equal(
+    await readCompletion(response, undefined, (t) => thoughts.push(t)),
+    "Answer",
+  );
+  assert.deepEqual(thoughts, ["Checking the facts"]);
+});
+
+test("preserves tag names that only start with think", async () => {
+  const text = "<thinker>A character</thinker>";
+  assert.equal(
+    await readCompletion(
+      stream(`${chunk("<think")}\n${chunk("er>A character</thinker>")}\n`),
+    ),
+    text,
+  );
+});
+
+test("preserves incomplete tags at the end of an answer", async () => {
+  assert.equal(
+    await readCompletion(stream(`${chunk("The prefix is <think")}\n`)),
+    "The prefix is <think",
+  );
+});
+
+test("preserves literal think tags in explanations and code", async () => {
+  const text = "The model uses `<think>reasoning</think>` before its answer.";
+  assert.equal(await readCompletion(stream(`${chunk(text)}\n`)), text);
+});
+test("separates a whitespace closing think tag split across deltas", async () => {
+  const thoughts = [];
+  const answer = await readCompletion(
+    stream(`${chunk("<think>Plan</think ")}\n${chunk(">Answer")}\n`),
+    undefined,
+    (text) => thoughts.push(text),
+  );
+  assert.equal(answer, "Answer");
+  assert.equal(thoughts.at(-1), "Plan");
+});

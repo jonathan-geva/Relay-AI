@@ -202,6 +202,25 @@ export default function ChatMockSetup({
               />
               {status.installed && (
                 <Action
+                  title="Repair or Update Managed Installation"
+                  icon={Icon.Download}
+                  onAction={() =>
+                    run(async (signal, update) => {
+                      const manager = chatMockManager();
+                      await manager.stop();
+                      await manager.install(update, signal, true);
+                      if (!(await manager.hasSession())) {
+                        update("Finish signing in in your browser");
+                        await manager.login((url) => open(url), signal);
+                      }
+                      await manager.start(update, signal);
+                      await activateChatMock();
+                    })
+                  }
+                />
+              )}
+              {status.installed && (
+                <Action
                   title="Sign in Again"
                   icon={Icon.Person}
                   onAction={() =>
@@ -226,6 +245,10 @@ export default function ChatMockSetup({
                   onAction={() =>
                     run(async () => {
                       await LocalStorage.setItem(MANAGED_KEY, false);
+                      await LocalStorage.setItem(
+                        "relay-active-provider",
+                        "preferences",
+                      );
                       await chatMockManager().stop();
                     })
                   }
@@ -237,6 +260,10 @@ export default function ChatMockSetup({
                   icon={Icon.Gear}
                   onAction={async () => {
                     await LocalStorage.setItem(MANAGED_KEY, false);
+                    await LocalStorage.setItem(
+                      "relay-active-provider",
+                      "preferences",
+                    );
                     await refresh();
                   }}
                 />

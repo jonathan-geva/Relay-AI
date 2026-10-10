@@ -1,119 +1,93 @@
 # Relay AI
 
-Relay AI is a native Raycast workspace for ChatMock and other OpenAI-compatible APIs. It brings conversations, selected-text actions, reusable prompts, model choice, and local history into one keyboard-first interface on Windows and macOS.
+A native Raycast AI workspace for Windows and macOS, with continuous chat input, provider profiles, reusable prompts, and local history.
 
-## Features
+## Chat without leaving the transcript
 
-- Streaming answers with model reasoning rendered separately while the response is generated.
-- Searchable conversation history with resume, pin, rename, delete, and Markdown export.
-- Quick Ask plus dedicated actions for understanding and improving selected text.
-- Ten categorized prompt templates and a custom prompt library with create, edit, duplicate, and delete actions.
-- Model discovery, persistent defaults, graceful fallback, and readable connection errors.
-- Stop, retry, regenerate, continue, copy, and paste from every response.
-- Optional local history and independently stored custom prompts.
-- One-step ChatMock installation, sign-in, server startup, and model selection.
+Open **Relay AI → New Conversation**, then type in the message bar at the top. **Enter sends your message.** The answer and conversation timeline remain visible while you reply; there is no follow-up form to open.
+
+- **Latest Response** keeps the newest exchange readable. Select **Full Transcript** or an earlier message to review context while your draft stays in the message bar.
+- Type the next message while Relay streams. Enter queues it and sends it after the current answer finishes, with that answer included in the context.
+- Stop cancels the request and clears the queue. Partial answers and thinking are retained.
+- The model dropdown changes the next response's model within the same conversation.
+- Edit Last Message puts that message into the message bar and creates a new branch when you send it. The original chat is preserved.
+- Show/Hide Thinking, elapsed time, copy/paste, regenerate, and export are in the action menu.
+- Draft text is restored when you resume a saved conversation. Pending attachment selections and queues are session-only.
+
+The message bar is Raycast's native single-line search control with filtering disabled. It accepts typed or pasted text; it is not a custom multiline composer docked below the transcript. This layout uses the supported [List API](https://developers.raycast.com/api-reference/user-interface/list).
 
 ## Commands
 
-| Command                      | Purpose                                                                  |
-| ---------------------------- | ------------------------------------------------------------------------ |
-| **Relay AI**                 | Open the workspace, start conversations, and manage history.             |
-| **Quick Ask**                | Send a prompt directly from Raycast.                                     |
-| **Ask About Selected Text**  | Capture selected text, review the prompt, and ask Relay about it.        |
-| **Improve Selected Writing** | Improve selected text while preserving its meaning, language, and voice. |
-| **Models**                   | Browse available models and choose the default.                          |
-| **Prompt Library**           | Run curated prompts or manage your own reusable prompts.                 |
-| **Set Up ChatMock**          | Install and connect the managed local ChatMock server.                   |
+| Command                  | Purpose                                                   |
+| ------------------------ | --------------------------------------------------------- |
+| Relay AI                 | Workspace, continuous chat, history, archive and trash    |
+| Quick Ask                | Send an initial question directly from root search        |
+| Ask About Selected Text  | Preview a selection as a chat draft                       |
+| Improve Selected Writing | Use persistent writing instructions with selected text    |
+| Ask About Clipboard      | Preview clipboard text as a chat draft                    |
+| Models                   | Discovery, favorites, provider switching and defaults     |
+| Prompt Library           | Ten templates, custom presets, variables and sharing      |
+| Run Prompt Preset        | Launch a preset by quicklink, name or ID                  |
+| Provider Profiles        | Chat Completions, Responses and Anthropic configuration   |
+| Projects & Agents        | Shared instructions and saved model/tool presets          |
+| MCP Connections          | Existing Streamable HTTP MCP servers                      |
+| Backup, Restore & Sync   | JSON backup/import and synced-folder exchange             |
+| Set up ChatMock          | Automatic installation, login, repair and server controls |
 
-## Automatic ChatMock setup
+## Setup and providers
 
-On first launch, Relay offers the setup screen automatically. Choose **Set Up Automatically** and keep the screen open while it works.
+On first launch, **Set up Automatically** installs pinned ChatMock 1.40 and private Python 3.12 using a checksum-verified uv archive. Sign in in your browser when prompted. Relay binds the server to `127.0.0.1:8317` and requires a random local key. It restarts on demand; repair/update reinstalls the bundled, tested ChatMock version and preserves the account folder.
 
-Relay downloads a checksum-verified uv archive, creates a private Python 3.12 environment, and installs ChatMock 1.40 inside Raycast's extension support directory. It does not require administrator access or install Python globally.
+Choose **Use My Custom API Instead** for another endpoint. The built-in Custom API Preferences profile uses extension preferences. Saved profiles support Chat Completions, Responses, and Anthropic Messages. Set the base URL, model and key, then enable only capabilities supported by that provider/model.
 
-If ChatMock finds a saved session, it reuses it. Otherwise, Relay opens the official browser sign-in and waits for you to finish. ChatMock handles the account credentials; Relay does not display or copy them.
+Provider keys stay in device-local Raycast LocalStorage, separate from portable records. Alternatively, specify an environment variable. Blank key fields preserve a saved key. Profiles, credentials and sessions are excluded from backups and sync, so configure providers independently on another device.
 
-After setup, Relay:
+Chats record their provider and endpoint fingerprint. Changing a provider or endpoint requires confirmation before saved history is sent to the new destination. Defaults are scoped to endpoint fingerprints; model discovery selects an available model when a saved default has disappeared.
 
-1. Starts an authenticated server on `127.0.0.1:8317`.
-2. Discovers the models available to the signed-in account.
-3. Selects a valid default model.
-4. Restarts the server on demand after Raycast or the computer restarts.
+## Prompts, projects and agents
 
-The server accepts connections only from the local computer and requires a random per-install access key. Custom API preferences and their model default remain stored separately, so you can switch back with **Stop Server and Use Custom API**.
+Custom prompts can save a model and provider ID plus reusable instructions. Use placeholders such as `{{language}}`, `{{tone}}`, `{{audience}}`, `{{input}}` and `{{selectedText}}`; missing values are collected before opening the chat. `{{date}}` fills automatically. Clipboard actions can fill input/selection/clipboard fields. Instructions remain active across follow-ups.
 
-The setup page also provides status refresh, reauthentication, cancellation, server logs, the ChatMock data folder, and recovery from a stale setup lock. Setup downloads require access to GitHub, PyPI, Astral's Python downloads, and the ChatGPT sign-in service.
+Copy a prompt quicklink from its action menu to launch it directly. JSON exports can be imported through **Backup, Restore & Sync**. Prompt records are stored individually, so simultaneous edits to different prompts do not overwrite one another.
 
-## Use another provider
+Projects group chats under shared instructions. Agents save instructions, an optional model and an allowed MCP-tool list. Choose either in Chat Settings. Tags and projects appear in the workspace collection dropdown.
 
-Choose **Use My Custom API Instead** during setup, then configure these extension preferences:
+## Search, context and attachments
 
-- **API Base URL**: an OpenAI-compatible `/v1` endpoint.
-- **API Key**: optional authorization token for the endpoint.
-- **Fallback Model**: used before model discovery or when discovery is unavailable.
-- **System Prompt**: optional instruction prepended to conversations.
-- **Conversation History**: controls whether future chats are saved locally.
+Turn on web search in Chat Settings for a capable provider. Managed ChatMock uses its Responses endpoint for search so source annotations remain available. Sources appear below the answer. Search requires upstream model/account support.
 
-The default custom endpoint is `http://127.0.0.1:8000/v1`. Relay supports OpenAI Chat Completions responses as SSE streams or JSON. Model discovery is optional when a fallback model is configured.
+Attach text/code files or PNG/JPEG/GIF/WebP images through **Attach Files or Screenshot**. Review content before adding it, then inspect pending attachments in the chat before sending. Use a saved screenshot or a clipboard file; Relay does not silently capture your screen. Clipboard image data without a file path may need to be saved first.
 
-## Run from source
+Limits: text files 256 KB each; images 10 MB each; eight files and 15 MB per attachment selection. Binary text files and damaged image containers are rejected. PDF extraction, audio and video are not implemented.
 
-Install Raycast and Node.js 22.22.2 or newer. Node.js 24 LTS is supported.
+Context limits use an approximate character-based token budget. **Summarize Earlier Context** replaces earlier turns only in future requests; the full original transcript stays stored. **Use Full Original Context** reverses this. Provider output-limit warnings offer continuation/settings recovery. Authentication, rate-limit, timeout and connection errors explain the next step.
+
+## Tools and data
+
+Add an existing Streamable HTTP MCP endpoint, then discover tools. Optional bearer authentication uses an environment variable. Enable tools per chat, and select a saved agent to restrict the available tool list. Every proposed tool call shows its arguments and requires confirmation. Declined tools do not execute. Runs are capped at eight model/tool rounds. OAuth sign-in and stdio MCP transports are not included.
+
+History includes pins, rename, archive, branching and restorable Recently Deleted records. Disabling history stops future conversation and draft saves, and automatic folder sync. Permanent Clear History removes all local conversation/draft records; synced copies require separate clearing or disconnecting.
+
+Exports include message text, thinking, attachments, prompts, projects and agents. JSON is versioned and validated before import; failed writes roll back. Import makes a local recovery backup first.
+
+Folder sync uses a folder already managed by OneDrive, Dropbox, iCloud Drive or another sync service. Each device writes its own JSON file. Record timestamps resolve conflicts, including deletion markers; divergent simultaneous edits to the same record use deterministic last-write selection. Enable automatic sync explicitly, or merge manually. Relay does not create a hosted account or configure your cloud service.
+
+## Run and verify
+
+Use Node.js **22.22.2+**, preferably Node.js 24. On this PC, `start-relay.ps1` can select the bundled compatible runtime when the system Node is too old. Keep the development watcher running.
 
 ```powershell
-git clone https://github.com/jonathan-geva/Relay-AI.git
-cd Relay-AI
 npm ci
 npm run dev
 ```
 
-`npm run dev` uses Raycast's Windows-compatible release target, imports the development extension, and watches source changes. Keep that terminal open, then search Raycast for **Relay AI**. If Raycast does not become visible automatically, open it yourself; the watcher can still be running correctly.
-
-Create a production bundle with:
-
 ```powershell
 npm run build
-```
-
-The output is written to `dist/`.
-
-## Everyday workflows
-
-1. Open **Relay AI**, choose **New Conversation**, enter a message, select a model, and send.
-2. Watch reasoning and answer text stream in separate sections.
-3. Use the action menu to stop, continue, regenerate, copy, or paste the answer.
-4. Return to the workspace to search, resume, pin, rename, export, or delete conversations.
-5. Open **Prompt Library** to run a template with typed or selected text.
-
-Selected-text commands first show the captured content in an editable form. Relay never replaces the source text automatically; use **Paste Response** when you want to insert the result.
-
-## Data and privacy
-
-Messages and the optional system prompt are sent to the configured provider. Conversation history and custom prompts use Raycast LocalStorage. API keys and ChatMock account credentials are not written into conversation records or Markdown exports.
-
-Disabling history stops future conversations from being saved. Existing history remains until you delete it. Partial answers and reasoning are retained when a request is stopped or fails after streaming begins.
-
-## Troubleshooting
-
-- **A command is missing:** run `npm run dev`, keep the terminal open, and reopen Raycast.
-- **Missing executable:** run `npm ci` followed by `npm run build`, then restart `npm run dev`.
-- **Response stops immediately:** update to the latest branch build and open a fresh command window. Relay includes a remount-safe request lifecycle for Raycast development mode.
-- **ChatMock is unavailable:** open **Set Up ChatMock**, refresh its status, and inspect **Open Server Log** if startup fails.
-- **No models appear:** reauthenticate ChatMock or verify the custom API URL and key. The configured fallback remains usable when only discovery fails.
-- **Selection cannot be read:** select text in another application before launching the command, then use **Read Selection Again**.
-
-Generation times out after three minutes and model discovery after 15 seconds. Tools, images, attachments, browsing, and synchronization are outside the current text-chat scope.
-
-## Development checks
-
-```powershell
 npm run typecheck
 npm run lint:code
+npm run format:check
 npm test
-npm run build
-npm run lint
+npm audit --audit-level=high
 ```
 
-The first four checks pass locally. Full Raycast Store lint also validates the author account; the inherited `jonathan-geva` handle currently receives a 404 from that remote validation. This does not affect local builds.
-
-See [DESIGN.md](DESIGN.md) for architecture and product decisions and [VALIDATION.md](VALIDATION.md) for the current verification record.
+`npm run lint` additionally checks Store author identity. The current `jonathan-geva` handle returns 404; publishing needs a valid Raycast author. Cross-platform CI is configured, but native macOS acceptance and Store screenshots still require a real device/session. See [VALIDATION.md](VALIDATION.md), [DESIGN.md](DESIGN.md), [RELEASE.md](RELEASE.md) and [CHANGELOG.md](CHANGELOG.md).

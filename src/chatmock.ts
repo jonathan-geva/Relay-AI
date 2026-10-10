@@ -1,6 +1,7 @@
 import { environment, LocalStorage } from "@raycast/api";
 import { join } from "node:path";
 import { ChatMockManager } from "./chatmock-manager";
+import { parseModelList } from "./model-list";
 export const MANAGED_KEY = "chatmock-managed-enabled";
 export const SETUP_DISMISSED_KEY = "chatmock-setup-dismissed";
 export function chatMockManager() {
@@ -30,10 +31,7 @@ export async function activateChatMock() {
     throw new Error(
       `ChatMock returned an error (${response.status}). Try signing in again.`,
     );
-  const body = (await response.json()) as { data?: { id?: string }[] };
-  const models = (body.data || [])
-    .map((item) => item.id)
-    .filter((id): id is string => typeof id === "string" && id.length > 0);
+  const models = parseModelList(await response.json());
   if (!models.length)
     throw new Error(
       "ChatMock is running but returned no models. Try signing in again, then retry setup.",
@@ -42,6 +40,7 @@ export async function activateChatMock() {
   if (!stored || !models.includes(stored))
     await LocalStorage.setItem("chatmock-default-model", models[0]);
   await LocalStorage.setItem(MANAGED_KEY, true);
+  await LocalStorage.setItem("relay-active-provider", "managed");
   await LocalStorage.setItem(SETUP_DISMISSED_KEY, false);
   return models.length;
 }

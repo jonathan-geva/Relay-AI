@@ -48,10 +48,11 @@ const entry = join(directory, "test.cjs");
 await writeFile(entry, result.outputFiles[0].text);
 const relay = createRequire(import.meta.url)(entry);
 let received;
+let modelResponse = { data: [{ id: "zeta" }, { id: "alpha" }] };
 const server = createServer(async (req, res) => {
   if (req.url === "/v1/models") {
     res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify({ data: [{ id: "zeta" }, { id: "alpha" }] }));
+    res.end(JSON.stringify(modelResponse));
     return;
   }
   let body = "";
@@ -185,6 +186,84 @@ try {
     assert.equal((await relay.getPrompts())[0].title, "Edited");
     await relay.deletePrompt(prompt.id);
     assert.deepEqual(await relay.getPrompts(), []);
+  });
+  await test("model discovery normalizes duplicate and invalid entries", async () => {
+    modelResponse = {
+      data: [
+        { id: " alpha " },
+        { id: "alpha" },
+        null,
+        { id: "" },
+        { id: 42 },
+        { id: "zeta" },
+      ],
+    };
+    assert.deepEqual(await relay.fetchModels(), ["alpha", "zeta"]);
+  });
+  await test("model discovery explains malformed provider responses", async () => {
+    modelResponse = { data: {} };
+    await assert.rejects(relay.fetchModels(), /invalid model list/i);
+  });
+  await test("unreadable history records cannot break healthy conversations", async () => {
+    const healthy = relay.newConversation("Healthy", "alpha");
+    await relay.saveConversation(healthy);
+    items.set(
+      "relay-chat:invalid",
+      JSON.stringify({ id: "invalid", messages: [null] }),
+    );
+    items.set(
+      "relay-chat:invalid-content",
+      JSON.stringify({
+        ...healthy,
+        id: "invalid-content",
+        messages: [{ role: "assistant", content: 42 }],
+      }),
+    );
+    items.set(
+      "relay-chat:missing-metadata",
+      JSON.stringify({ id: "missing-metadata", messages: [] }),
+    );
+    assert.deepEqual(
+      (await relay.getConversations()).map((chat) => chat.id),
+      [healthy.id],
+    );
+  });
+  await test("clear history removes unreadable records and preserves other settings", async () => {
+    items.set("relay-chat:corrupt", "not JSON");
+    items.set("relay-chat:invalid", "null");
+    items.set(
+      "relay-prompts",
+      JSON.stringify([
+        {
+          id: "keep",
+          title: "Keep",
+          instruction: "Explain",
+          category: "Custom",
+          description: "",
+        },
+      ]),
+    );
+    await relay.clearHistory();
+    assert.equal(
+      [...items.keys()].some((key) => key.startsWith("relay-chat:")),
+      false,
+    );
+    assert.equal(items.get("default-model"), "alpha");
+    assert.equal((await relay.getPrompts())[0].id, "keep");
+  });
+  await test("malformed prompt storage is preserved with an actionable error", async () => {
+    items.set("relay-prompts", "{}");
+    await assert.rejects(relay.getPrompts(), /prompt library.*unreadable/i);
+    await assert.rejects(
+      relay.savePrompt({
+        id: "new",
+        title: "New",
+        instruction: "Explain",
+        category: "Custom",
+        description: "",
+      }),
+    );
+    assert.equal(items.get("relay-prompts"), "{}");
   });
 } finally {
   server.closeAllConnections();

@@ -207,9 +207,9 @@ export class ChatMockManager {
     });
     return stdout.trim() === "ready";
   }
-  async install(progress: Progress, signal?: AbortSignal) {
+  async install(progress: Progress, signal?: AbortSignal, force = false) {
     return this.locked(async () => {
-      if (await this.installed()) {
+      if (!force && (await this.installed())) {
         progress("ChatMock is installed");
         return;
       }
